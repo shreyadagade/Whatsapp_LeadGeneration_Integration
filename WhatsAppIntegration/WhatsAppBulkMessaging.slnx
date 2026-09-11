@@ -1,6 +1,8 @@
 <Solution>
-  <Project Path="WhatsAppBulkMessaging.API/WhatsAppBulkMessaging.API.csproj" />
-  <Project Path="WhatsAppBulkMessaging.Application/WhatsAppBulkMessaging.Application.csproj" />
-  <Project Path="WhatsAppBulkMessaging.Domain/WhatsAppBulkMessaging.Domain.csproj" />
-  <Project Path="WhatsAppBulkMessaging.Infrastructure/WhatsAppBulkMessaging.Infrastructure.csproj" />
+  <Folder Name="/WhatsAppIntegration/">
+    <Project Path="WhatsAppBulkMessaging.API/WhatsAppBulkMessaging.API.csproj" />
+    <Project Path="WhatsAppBulkMessaging.Application/WhatsAppBulkMessaging.Application.csproj" />
+    <Project Path="WhatsAppBulkMessaging.Domain/WhatsAppBulkMessaging.Domain.csproj" />
+    <Project Path="WhatsAppBulkMessaging.Infrastructure/WhatsAppBulkMessaging.Infrastructure.csproj" />
+  </Folder>
 </Solution>

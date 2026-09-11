@@ -6,35 +6,36 @@ namespace WhatsAppBulkMessaging.Infrastructure.Services;
 
 public class ExcelService : IExcelService
 {
-    public async Task<List<RecipientDto>> ReadRecipientsAsync(
-        Stream fileStream)
+    public Task<List<RecipientDto>> ReadRecipientsAsync(Stream fileStream)
     {
         var recipients = new List<RecipientDto>();
 
         using var workbook = new XLWorkbook(fileStream);
 
-        var worksheet = workbook.Worksheet(1);
+        var worksheet = workbook.Worksheets.FirstOrDefault();
+
+        if (worksheet == null)
+        {
+            return Task.FromResult(recipients);
+        }
 
         var rows = worksheet.RowsUsed().Skip(1);
 
         foreach (var row in rows)
         {
-            var name = row.Cell(1).GetString().Trim();
-            var phoneNumber = row.Cell(2).GetString().Trim();
+            var phoneNumber = row.Cell(1).GetString().Trim();
 
-            if (string.IsNullOrWhiteSpace(name) &&
-                string.IsNullOrWhiteSpace(phoneNumber))
+            if (string.IsNullOrWhiteSpace(phoneNumber))
             {
                 continue;
             }
 
             recipients.Add(new RecipientDto
             {
-                Name = name,
                 PhoneNumber = phoneNumber
             });
         }
 
-        return await Task.FromResult(recipients);
+        return Task.FromResult(recipients);
     }
 }

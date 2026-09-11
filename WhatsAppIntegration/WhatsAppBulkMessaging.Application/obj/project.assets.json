@@ -33,11 +33,11 @@
   "project": {
     "version": "1.0.0",
     "restore": {
-      "projectUniqueName": "D:\\All project\\WhatsAppBulkMessaging\\WhatsAppBulkMessaging.Application\\WhatsAppBulkMessaging.Application.csproj",
+      "projectUniqueName": "D:\\All project\\WhatsAppBulkMessaging\\WhatsAppIntegration\\WhatsAppBulkMessaging.Application\\WhatsAppBulkMessaging.Application.csproj",
       "projectName": "WhatsAppBulkMessaging.Application",
-      "projectPath": "D:\\All project\\WhatsAppBulkMessaging\\WhatsAppBulkMessaging.Application\\WhatsAppBulkMessaging.Application.csproj",
+      "projectPath": "D:\\All project\\WhatsAppBulkMessaging\\WhatsAppIntegration\\WhatsAppBulkMessaging.Application\\WhatsAppBulkMessaging.Application.csproj",
       "packagesPath": "C:\\Users\\Ysaas\\.nuget\\packages\\",
-      "outputPath": "D:\\All project\\WhatsAppBulkMessaging\\WhatsAppBulkMessaging.Application\\obj\\",
+      "outputPath": "D:\\All project\\WhatsAppBulkMessaging\\WhatsAppIntegration\\WhatsAppBulkMessaging.Application\\obj\\",
       "projectStyle": "PackageReference",
       "fallbackFolders": [
         "C:\\Program Files (x86)\\Microsoft Visual Studio\\Shared\\NuGetPackages"
@@ -60,8 +60,8 @@
           "framework": "net10.0",
           "targetAlias": "net10.0",
           "projectReferences": {
-            "D:\\All project\\WhatsAppBulkMessaging\\WhatsAppBulkMessaging.Domain\\WhatsAppBulkMessaging.Domain.csproj": {
-              "projectPath": "D:\\All project\\WhatsAppBulkMessaging\\WhatsAppBulkMessaging.Domain\\WhatsAppBulkMessaging.Domain.csproj"
+            "D:\\All project\\WhatsAppBulkMessaging\\WhatsAppIntegration\\WhatsAppBulkMessaging.Domain\\WhatsAppBulkMessaging.Domain.csproj": {
+              "projectPath": "D:\\All project\\WhatsAppBulkMessaging\\WhatsAppIntegration\\WhatsAppBulkMessaging.Domain\\WhatsAppBulkMessaging.Domain.csproj"
             }
           }
         }
