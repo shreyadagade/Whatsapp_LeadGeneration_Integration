@@ -8,7 +8,7 @@ public class WhatsAppSettings
 
     public string PhoneNumberId { get; set; } = string.Empty;
 
-    public string TemplateName { get; set; } = string.Empty;
+    public string HeaderImageMediaId { get; set; } = string.Empty;
 
     public string LanguageCode { get; set; } = "en";
 }

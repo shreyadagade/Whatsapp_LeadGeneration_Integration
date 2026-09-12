@@ -24,8 +24,7 @@ public class WhatsAppController : ControllerBase
 
     [HttpPost("send-bulk")]
     [Consumes("multipart/form-data")]
-    public async Task<IActionResult> SendBulk(
-    [FromForm] SendBulkMessageRequest request)
+    public async Task<IActionResult> SendBulk([FromForm] SendBulkMessageRequest request)
     {
         if (request.File == null || request.File.Length == 0)
         {
@@ -119,7 +118,7 @@ public class WhatsAppController : ControllerBase
                     PhoneNumber = recipient.PhoneNumber,
                     Status = "Failed",
                     MessageId = (string?)null,
-                    Reason = "Message could not be sent."
+                    Reason = ex.Message
                 });
             }
         }
@@ -131,6 +130,47 @@ public class WhatsAppController : ControllerBase
             TemplateName = request.TemplateName,
             TotalRecipients = recipients.Count,
             Results = results
+        });
+    }
+
+    [HttpPost("upload-media")]
+    [Consumes("multipart/form-data")]
+    public async Task<IActionResult> UploadMedia(IFormFile file)
+    {
+        if (file == null || file.Length == 0)
+        {
+            return BadRequest(new
+            {
+                StatusCode = StatusCodes.Status400BadRequest,
+                Message = "Image file is required."
+            });
+        }
+
+        var extension = Path.GetExtension(file.FileName);
+
+        if (!extension.Equals(".jpg", StringComparison.OrdinalIgnoreCase) &&
+            !extension.Equals(".jpeg", StringComparison.OrdinalIgnoreCase) &&
+            !extension.Equals(".png", StringComparison.OrdinalIgnoreCase))
+        {
+            return BadRequest(new
+            {
+                StatusCode = StatusCodes.Status400BadRequest,
+                Message = "Only JPG, JPEG and PNG images are allowed."
+            });
+        }
+
+        using var stream = file.OpenReadStream();
+
+        var mediaId =
+            await _whatsAppService.UploadMediaAsync(
+                stream,
+                file.FileName);
+
+        return Ok(new
+        {
+            StatusCode = StatusCodes.Status200OK,
+            Message = "Image uploaded successfully.",
+            MediaId = mediaId
         });
     }
 }
