@@ -18,43 +18,47 @@ public class WhatsAppService : IWhatsAppService
     }
 
     public async Task<string> SendTemplateMessageAsync(
-        string phoneNumber,
-        string templateName)
+            string phoneNumber,
+            string templateName,
+            string? headerImageMediaId = null)
     {
-        var url =
-            $"{_settings.BaseUrl}/{_settings.PhoneNumberId}/messages";
+        var url = $"{_settings.BaseUrl}/{_settings.PhoneNumberId}/messages";
+
+        var template = new
+        {
+            name = templateName,
+            language = new
+            {
+                code = _settings.LanguageCode
+            },
+            components = string.IsNullOrWhiteSpace(headerImageMediaId)
+                ? null
+                : new[]
+                {
+                new
+                {
+                    type = "header",
+                    parameters = new[]
+                    {
+                        new
+                        {
+                            type = "image",
+                            image = new
+                            {
+                                id = headerImageMediaId
+                            }
+                        }
+                    }
+                }
+                }
+        };
 
         var requestBody = new
         {
             messaging_product = "whatsapp",
             to = phoneNumber,
             type = "template",
-            template = new
-            {
-                name = templateName,
-                language = new
-                {
-                    code = _settings.LanguageCode
-                },
-                components = new[]
-                {
-                    new
-                    {
-                        type = "header",
-                        parameters = new[]
-                        {
-                            new
-                            {
-                                type = "image",
-                                image = new
-                                {
-                                    id = _settings.HeaderImageMediaId
-                                }   
-                             }
-                        }
-                    }
-                }
-            }
+            template
         };
 
         var json = JsonSerializer.Serialize(requestBody);
@@ -73,7 +77,8 @@ public class WhatsAppService : IWhatsAppService
             Encoding.UTF8,
             "application/json");
 
-        var response = await _httpClient.SendAsync(request);
+        var response =
+            await _httpClient.SendAsync(request);
 
         var responseContent =
             await response.Content.ReadAsStringAsync();
@@ -99,7 +104,6 @@ public class WhatsAppService : IWhatsAppService
 
         return string.Empty;
     }
-
     public async Task<string> UploadMediaAsync(Stream fileStream,string fileName)
     {
         var url =

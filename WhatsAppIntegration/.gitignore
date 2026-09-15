@@ -1,0 +1,27 @@
+# Visual Studio
+.vs/
+**/.vs/
+
+# Build output
+bin/
+**/bin/
+obj/
+**/obj/
+
+# User-specific files
+*.user
+*.suo
+
+# NuGet
+packages/
+*.nupkg
+
+# Logs
+*.log
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Publish profiles
+**/Properties/PublishProfiles/

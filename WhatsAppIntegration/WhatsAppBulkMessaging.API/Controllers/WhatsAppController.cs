@@ -2,6 +2,7 @@
 using WhatsAppBulkMessaging.API.Models;
 using WhatsAppBulkMessaging.Application.Interfaces;
 using WhatsAppBulkMessaging.Application.Validators;
+using WhatsAppBulkMessaging.Domain.Entities;
 
 namespace WhatsAppBulkMessaging.API.Controllers;
 
@@ -12,19 +13,27 @@ public class WhatsAppController : ControllerBase
     private readonly IExcelService _excelService;
     private readonly IWhatsAppService _whatsAppService;
     private readonly ILogger<WhatsAppController> _logger;
+    private readonly IWhatsAppTemplateRepository _templateRepository;
+    private readonly IWhatsAppMessageRepository _messageRepository;
 
-    public WhatsAppController(IExcelService excelService,
+    public WhatsAppController(
+        IExcelService excelService,
         IWhatsAppService whatsAppService,
-        ILogger<WhatsAppController> logger)
+        ILogger<WhatsAppController> logger,
+        IWhatsAppTemplateRepository templateRepository,
+        IWhatsAppMessageRepository messageRepository)
     {
         _excelService = excelService;
         _whatsAppService = whatsAppService;
         _logger = logger;
+        _templateRepository = templateRepository;
+        _messageRepository = messageRepository;
     }
 
     [HttpPost("send-bulk")]
     [Consumes("multipart/form-data")]
-    public async Task<IActionResult> SendBulk([FromForm] SendBulkMessageRequest request)
+    public async Task<IActionResult> SendBulk(
+        [FromForm] SendBulkMessageRequest request)
     {
         if (request.File == null || request.File.Length == 0)
         {
@@ -54,6 +63,20 @@ public class WhatsAppController : ControllerBase
             });
         }
 
+        var template =
+            await _templateRepository.GetByTemplateNameAsync(
+                request.TemplateName.Trim());
+
+        if (template == null)
+        {
+            return BadRequest(new
+            {
+                StatusCode = StatusCodes.Status400BadRequest,
+                Message =
+                    $"WhatsApp template '{request.TemplateName}' was not found or is inactive."
+            });
+        }
+
         using var stream = request.File.OpenReadStream();
 
         var recipients =
@@ -63,6 +86,16 @@ public class WhatsAppController : ControllerBase
             .GroupBy(x => x.PhoneNumber.Trim())
             .Select(x => x.First())
             .ToList();
+
+        if (recipients.Count > 500)
+        {
+            return BadRequest(new
+            {
+                StatusCode = StatusCodes.Status400BadRequest,
+                Message =
+                    "Maximum 500 unique recipients are allowed per Excel file."
+            });
+        }
 
         if (recipients.Count == 0)
         {
@@ -96,7 +129,18 @@ public class WhatsAppController : ControllerBase
                 var messageId =
                     await _whatsAppService.SendTemplateMessageAsync(
                         recipient.PhoneNumber,
-                        request.TemplateName);
+                        template.TemplateName,
+                        template.HeaderMediaId);
+
+                await _messageRepository.AddAsync(
+                    new WhatsAppMessage
+                    {
+                        PhoneNumber = recipient.PhoneNumber,
+                        TemplateName = template.TemplateName,
+                        MetaMessageId = messageId,
+                        Status = "Accepted",
+                        CreatedAt = DateTime.UtcNow
+                    });
 
                 results.Add(new
                 {
@@ -107,6 +151,18 @@ public class WhatsAppController : ControllerBase
             }
             catch (Exception ex)
             {
+                await _messageRepository.AddAsync(
+                    new WhatsAppMessage
+                    {
+                        PhoneNumber = recipient.PhoneNumber,
+                        TemplateName = template.TemplateName,
+                        MetaMessageId = null,
+                        Status = "Failed",
+                        FailureReason =
+                            "Failed to send WhatsApp message.",
+                        CreatedAt = DateTime.UtcNow
+                    });
+
                 _logger.LogError(
                     ex,
                     "Failed to send WhatsApp message to {PhoneNumber} using template {TemplateName}",
@@ -118,7 +174,8 @@ public class WhatsAppController : ControllerBase
                     PhoneNumber = recipient.PhoneNumber,
                     Status = "Failed",
                     MessageId = (string?)null,
-                    Reason = ex.Message
+                    Reason =
+                        "Failed to send WhatsApp message. Please try again later."
                 });
             }
         }
@@ -148,9 +205,15 @@ public class WhatsAppController : ControllerBase
 
         var extension = Path.GetExtension(file.FileName);
 
-        if (!extension.Equals(".jpg", StringComparison.OrdinalIgnoreCase) &&
-            !extension.Equals(".jpeg", StringComparison.OrdinalIgnoreCase) &&
-            !extension.Equals(".png", StringComparison.OrdinalIgnoreCase))
+        if (!extension.Equals(
+                ".jpg",
+                StringComparison.OrdinalIgnoreCase) &&
+            !extension.Equals(
+                ".jpeg",
+                StringComparison.OrdinalIgnoreCase) &&
+            !extension.Equals(
+                ".png",
+                StringComparison.OrdinalIgnoreCase))
         {
             return BadRequest(new
             {
