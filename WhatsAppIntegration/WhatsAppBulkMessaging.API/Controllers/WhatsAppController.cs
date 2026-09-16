@@ -32,8 +32,7 @@ public class WhatsAppController : ControllerBase
 
     [HttpPost("send-bulk")]
     [Consumes("multipart/form-data")]
-    public async Task<IActionResult> SendBulk(
-        [FromForm] SendBulkMessageRequest request)
+    public async Task<IActionResult> SendBulk([FromForm] SendBulkMessageRequest request)
     {
         if (request.File == null || request.File.Length == 0)
         {

@@ -14,6 +14,8 @@ public class WhatsAppMessage
 
     public string? FailureReason { get; set; }
 
+    public string? UserFriendlyFailureReason { get; set; }
+
     public DateTime CreatedAt { get; set; }
 
     public DateTime? UpdatedAt { get; set; }

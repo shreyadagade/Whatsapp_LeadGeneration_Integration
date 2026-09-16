@@ -32,6 +32,17 @@ public class WhatsAppMessageRepository : IWhatsAppMessageRepository
 
         message.Status = status;
         message.FailureReason = failureReason;
+
+        if (status.Equals("failed", StringComparison.OrdinalIgnoreCase))
+        {
+            message.UserFriendlyFailureReason =
+                "Message could not be delivered to this recipient. Please try again later.";
+        }
+        else
+        {
+            message.UserFriendlyFailureReason = null;
+        }
+
         message.UpdatedAt = DateTime.UtcNow;
 
         await _context.SaveChangesAsync();

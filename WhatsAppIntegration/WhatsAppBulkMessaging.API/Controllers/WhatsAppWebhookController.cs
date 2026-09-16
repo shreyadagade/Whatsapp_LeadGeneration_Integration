@@ -41,7 +41,9 @@ public class WhatsAppWebhookController : ControllerBase
     [HttpPost]
     public async Task<IActionResult> ReceiveWebhook([FromBody] JsonElement payload)
     {
-        Console.WriteLine("===== WHATSAPP WEBHOOK RECEIVED =====");
+        //Console.WriteLine("===== WHATSAPP WEBHOOK RECEIVED =====");
+        //Console.WriteLine("===== RAW WEBHOOK PAYLOAD =====");
+        //Console.WriteLine(payload.ToString());
 
         try
         {
@@ -72,9 +74,34 @@ public class WhatsAppWebhookController : ControllerBase
                         Console.WriteLine(
                             $"WhatsApp Message: {messageId}, Status: {messageStatus}");
 
+                        string? failureReason = null;
+
+                        if (messageStatus == "failed" &&
+                            status.TryGetProperty("errors", out var errors) &&
+                            errors.GetArrayLength() > 0)
+                        {
+                            var error = errors[0];
+
+                            var errorCode = error.TryGetProperty("code", out var code)
+                                ? code.ToString()
+                                : null;
+
+                            var errorTitle = error.TryGetProperty("title", out var title)
+                                ? title.GetString()
+                                : null;
+
+                            var errorMessage = error.TryGetProperty("message", out var message)
+                                ? message.GetString()
+                                : null;
+
+                            failureReason =
+                                $"Code: {errorCode}, Title: {errorTitle}, Message: {errorMessage}";
+                        }
+
                         await _messageRepository.UpdateStatusAsync(
                             messageId!,
-                            messageStatus!);
+                            messageStatus!,
+                            failureReason);
                     }
                 }
             }
