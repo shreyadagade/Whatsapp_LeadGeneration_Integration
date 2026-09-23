@@ -43,13 +43,22 @@ public class WhatsAppController : ControllerBase
             });
         }
 
-        if (!Path.GetExtension(request.File.FileName)
-            .Equals(".xlsx", StringComparison.OrdinalIgnoreCase))
+        var allowedExtensions = new[]
+        {
+            ".xlsx",
+            ".xls",
+            ".csv",
+            ".tsv"
+        };
+
+        var fileExtension = Path.GetExtension(request.File.FileName);
+
+        if (!allowedExtensions.Contains(fileExtension,StringComparer.OrdinalIgnoreCase))
         {
             return BadRequest(new
             {
                 StatusCode = StatusCodes.Status400BadRequest,
-                Message = "Only .xlsx Excel files are allowed."
+                Message = "Only .xlsx, .xls, .csv and .tsv files are allowed."
             });
         }
 
@@ -78,11 +87,9 @@ public class WhatsAppController : ControllerBase
 
         using var stream = request.File.OpenReadStream();
 
-        var recipients =
-            await _excelService.ReadRecipientsAsync(stream);
+        var recipients = await _excelService.ReadRecipientsAsync(stream,request.File.FileName);
 
-        recipients = recipients
-            .GroupBy(x => x.PhoneNumber.Trim())
+        recipients = recipients.GroupBy(x => x.PhoneNumber.Trim())
             .Select(x => x.First())
             .ToList();
 

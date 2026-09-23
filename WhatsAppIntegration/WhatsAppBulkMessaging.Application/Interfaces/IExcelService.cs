@@ -4,5 +4,5 @@ namespace WhatsAppBulkMessaging.Application.Interfaces;
 
 public interface IExcelService
 {
-    Task<List<RecipientDto>> ReadRecipientsAsync(Stream fileStream);
+    Task<List<RecipientDto>> ReadRecipientsAsync(Stream fileStream,string fileName);
 }
