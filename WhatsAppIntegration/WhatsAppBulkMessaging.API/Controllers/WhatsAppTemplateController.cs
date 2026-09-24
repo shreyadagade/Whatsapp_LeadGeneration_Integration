@@ -1,60 +1,25 @@
 ﻿using Microsoft.AspNetCore.Mvc;
 using WhatsAppBulkMessaging.Application.Interfaces;
-using WhatsAppBulkMessaging.Domain.Entities;
 
 namespace WhatsAppBulkMessaging.API.Controllers;
 
 [ApiController]
 [Route("api/[controller]")]
-public class WhatsAppTemplateController : ControllerBase
+public class WhatsAppTemplatesController : ControllerBase
 {
     private readonly IWhatsAppTemplateService _templateService;
 
-    public WhatsAppTemplateController(
+    public WhatsAppTemplatesController(
         IWhatsAppTemplateService templateService)
     {
         _templateService = templateService;
     }
 
     [HttpGet]
-    public async Task<IActionResult> GetAllTemplates()
+    public async Task<IActionResult> GetTemplates()
     {
-        var templates =
-            await _templateService.GetAllActiveTemplatesAsync();
+        var templates = await _templateService.GetTemplatesAsync();
 
-        return Ok(new
-        {
-            statusCode = StatusCodes.Status200OK,
-            message = "WhatsApp templates retrieved successfully.",
-            data = templates
-        });
-    }
-
-    [HttpPost]
-    public async Task<IActionResult> AddTemplate([FromBody] WhatsAppTemplate template)
-    {
-        var result =
-            await _templateService.AddTemplateAsync(template);
-
-        return Ok(new
-        {
-            statusCode = StatusCodes.Status200OK,
-            message = "WhatsApp template added successfully.",
-            data = result
-        });
-    }
-
-    [HttpPut]
-    public async Task<IActionResult> UpdateTemplate([FromBody] WhatsAppTemplate template)
-    {
-        var result =
-            await _templateService.UpdateTemplateAsync(template);
-
-        return Ok(new
-        {
-            statusCode = StatusCodes.Status200OK,
-            message = "WhatsApp template updated successfully.",
-            data = result
-        });
+        return Ok(templates);
     }
 }

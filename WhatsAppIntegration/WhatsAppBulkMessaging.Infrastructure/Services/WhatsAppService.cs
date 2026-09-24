@@ -1,171 +1,182 @@
-﻿using System.Net.Http.Headers;
-using System.Text;
-using System.Text.Json;
-using WhatsAppBulkMessaging.Application.Interfaces;
-using WhatsAppBulkMessaging.Infrastructure.Configuration;
+﻿//using System.Net.Http.Headers;
+//using System.Text;
+//using System.Text.Json;
+//using WhatsAppBulkMessaging.Application.Interfaces;
+//using WhatsAppBulkMessaging.Domain.Entities;
+//using WhatsAppBulkMessaging.Infrastructure.Configuration;
 
-namespace WhatsAppBulkMessaging.Infrastructure.Services;
+//namespace WhatsAppBulkMessaging.Infrastructure.Services;
 
-public class WhatsAppService : IWhatsAppService
-{
-    private readonly HttpClient _httpClient;
-    private readonly WhatsAppSettings _settings;
+//public class WhatsAppService : IWhatsAppService
+//{
+//    private readonly HttpClient _httpClient;
+//    private readonly WhatsAppSettings _settings;
 
-    public WhatsAppService(HttpClient httpClient,WhatsAppSettings settings)
-    {
-        _httpClient = httpClient;
-        _settings = settings;
-    }
+//    public WhatsAppService(HttpClient httpClient,WhatsAppSettings settings)
+//    {
+//        _httpClient = httpClient;
+//        _settings = settings;
+//    }
 
-    public async Task<string> SendTemplateMessageAsync(
-            string phoneNumber,
-            string templateName,
-            string? headerImageMediaId = null)
-    {
-        var url = $"{_settings.BaseUrl}/{_settings.PhoneNumberId}/messages";
+//    public async Task<string> SendTemplateMessageAsync(string phoneNumber,WhatsAppTemplate template)
+//    {
+//        var url = $"{_settings.BaseUrl}/{_settings.PhoneNumberId}/messages";
 
-        var template = new
-        {
-            name = templateName,
-            language = new
-            {
-                code = _settings.LanguageCode
-            },
-            components = string.IsNullOrWhiteSpace(headerImageMediaId)
-                ? null
-                : new[]
-                {
-                new
-                {
-                    type = "header",
-                    parameters = new[]
-                    {
-                        new
-                        {
-                            type = "image",
-                            image = new
-                            {
-                                id = headerImageMediaId
-                            }
-                        }
-                    }
-                }
-                }
-        };
+//        object? components = null;
 
-        var requestBody = new
-        {
-            messaging_product = "whatsapp",
-            to = phoneNumber,
-            type = "template",
-            template
-        };
+//        // IMAGE header असेल तरच image component पाठवायचा
+//        if (template.HeaderType?.Equals("IMAGE",
+//                StringComparison.OrdinalIgnoreCase) == true)
+//        {
+//            if (string.IsNullOrWhiteSpace(template.HeaderMediaId))
+//            {
+//                throw new Exception(
+//                    $"Media ID is required for IMAGE template '{template.TemplateName}'.");
+//            }
 
-        var json = JsonSerializer.Serialize(requestBody);
+//            components = new[]
+//            {
+//            new
+//            {
+//                type = "header",
+//                parameters = new[]
+//                {
+//                    new
+//                    {
+//                        type = "image",
+//                        image = new
+//                        {
+//                            id = template.HeaderMediaId
+//                        }
+//                    }
+//                }
+//            }
+//        };
+//        }
 
-        using var request = new HttpRequestMessage(
-            HttpMethod.Post,
-            url);
+//        var templateData = new
+//        {
+//            name = template.TemplateName,
+//            language = new
+//            {
+//                code = template.LanguageCode
+//            },
+//            components
+//        };
 
-        request.Headers.Authorization =
-            new AuthenticationHeaderValue(
-                "Bearer",
-                _settings.AccessToken);
+//        var requestBody = new
+//        {
+//            messaging_product = "whatsapp",
+//            to = phoneNumber,
+//            type = "template",
+//            template = templateData
+//        };
 
-        request.Content = new StringContent(
-            json,
-            Encoding.UTF8,
-            "application/json");
+//        var json = JsonSerializer.Serialize(requestBody);
 
-        var response =
-            await _httpClient.SendAsync(request);
+//        using var request = new HttpRequestMessage(HttpMethod.Post,url);
 
-        var responseContent =
-            await response.Content.ReadAsStringAsync();
+//        request.Headers.Authorization =
+//            new AuthenticationHeaderValue(
+//                "Bearer",
+//                _settings.AccessToken);
 
-        if (!response.IsSuccessStatusCode)
-        {
-            throw new Exception(
-                $"WhatsApp API request failed. Status: {(int)response.StatusCode}, Response: {responseContent}");
-        }
+//        request.Content = new StringContent(
+//            json,
+//            Encoding.UTF8,
+//            "application/json");
 
-        using var document =
-            JsonDocument.Parse(responseContent);
+//        var response =
+//            await _httpClient.SendAsync(request);
 
-        if (document.RootElement.TryGetProperty(
-                "messages",
-                out var messages) &&
-            messages.GetArrayLength() > 0)
-        {
-            return messages[0]
-                .GetProperty("id")
-                .GetString() ?? string.Empty;
-        }
+//        var responseContent =
+//            await response.Content.ReadAsStringAsync();
 
-        return string.Empty;
-    }
-    public async Task<string> UploadMediaAsync(Stream fileStream,string fileName)
-    {
-        var url =
-            $"{_settings.BaseUrl}/{_settings.PhoneNumberId}/media";
+//        if (!response.IsSuccessStatusCode)
+//        {
+//            throw new Exception(
+//                $"WhatsApp API request failed. Status: {(int)response.StatusCode}, Response: {responseContent}");
+//        }
 
-        using var content = new MultipartFormDataContent();
+//        using var document =
+//            JsonDocument.Parse(responseContent);
 
-        content.Add(
-            new StringContent("whatsapp"),
-            "messaging_product");
+//        if (document.RootElement.TryGetProperty(
+//                "messages",
+//                out var messages) &&
+//            messages.GetArrayLength() > 0)
+//        {
+//            return messages[0]
+//                .GetProperty("id")
+//                .GetString() ?? string.Empty;
+//        }
 
-        var fileContent = new StreamContent(fileStream);
+//        throw new Exception(
+//            "WhatsApp API succeeded but message ID was not returned.");
+//    }
 
-        fileContent.Headers.ContentType =
-            new System.Net.Http.Headers.MediaTypeHeaderValue(
-                Path.GetExtension(fileName)
-                    .Equals(".png", StringComparison.OrdinalIgnoreCase)
-                    ? "image/png"
-                    : "image/jpeg");
+//    public async Task<string> UploadMediaAsync(Stream fileStream,string fileName)
+//    {
+//        var url =
+//            $"{_settings.BaseUrl}/{_settings.PhoneNumberId}/media";
 
-        content.Add(
-            fileContent,
-            "file",
-            fileName);
+//        using var content = new MultipartFormDataContent();
 
-        using var request = new HttpRequestMessage(
-            HttpMethod.Post,
-            url);
+//        content.Add(
+//            new StringContent("whatsapp"),
+//            "messaging_product");
 
-        request.Headers.Authorization =
-            new AuthenticationHeaderValue(
-                "Bearer",
-                _settings.AccessToken);
+//        var fileContent = new StreamContent(fileStream);
 
-        request.Content = content;
+//        fileContent.Headers.ContentType =
+//            new System.Net.Http.Headers.MediaTypeHeaderValue(
+//                Path.GetExtension(fileName)
+//                    .Equals(".png", StringComparison.OrdinalIgnoreCase)
+//                    ? "image/png"
+//                    : "image/jpeg");
 
-        var response =
-            await _httpClient.SendAsync(request);
+//        content.Add(
+//            fileContent,
+//            "file",
+//            fileName);
 
-        var responseContent =
-            await response.Content.ReadAsStringAsync();
+//        using var request = new HttpRequestMessage(
+//            HttpMethod.Post,
+//            url);
 
-        if (!response.IsSuccessStatusCode)
-        {
-            throw new Exception(
-                $"WhatsApp media upload failed. Status: {(int)response.StatusCode}, Response: {responseContent}");
-        }
+//        request.Headers.Authorization =
+//            new AuthenticationHeaderValue(
+//                "Bearer",
+//                _settings.AccessToken);
 
-        using var document =
-            JsonDocument.Parse(responseContent);
+//        request.Content = content;
 
-        if (document.RootElement.TryGetProperty(
-                "id",
-                out var id))
-        {
-            return id.GetString() ?? string.Empty;
-        }
+//        var response =
+//            await _httpClient.SendAsync(request);
 
-        throw new Exception(
-            "WhatsApp media upload succeeded but media ID was not returned.");
-    }
-}
+//        var responseContent =
+//            await response.Content.ReadAsStringAsync();
+
+//        if (!response.IsSuccessStatusCode)
+//        {
+//            throw new Exception(
+//                $"WhatsApp media upload failed. Status: {(int)response.StatusCode}, Response: {responseContent}");
+//        }
+
+//        using var document =
+//            JsonDocument.Parse(responseContent);
+
+//        if (document.RootElement.TryGetProperty(
+//                "id",
+//                out var id))
+//        {
+//            return id.GetString() ?? string.Empty;
+//        }
+
+//        throw new Exception(
+//            "WhatsApp media upload succeeded but media ID was not returned.");
+//    }
+//}
 
 
 
