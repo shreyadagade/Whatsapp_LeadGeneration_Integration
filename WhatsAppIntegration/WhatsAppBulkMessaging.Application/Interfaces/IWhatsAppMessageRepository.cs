@@ -1,12 +1,27 @@
-﻿using WhatsAppBulkMessaging.Domain.Entities;
+﻿//using WhatsAppBulkMessaging.Domain.Entities;
+
+//namespace WhatsAppBulkMessaging.Application.Interfaces;
+
+//public interface IWhatsAppMessageRepository
+//{
+//    Task AddAsync(WhatsAppMessage message);
+//    Task UpdateStatusAsync(
+//        string metaMessageId,
+//        string status,
+//        string? failureReason = null);
+//}
+
+using WhatsAppBulkMessaging.Domain.Entities;
 
 namespace WhatsAppBulkMessaging.Application.Interfaces;
 
 public interface IWhatsAppMessageRepository
 {
     Task AddAsync(WhatsAppMessage message);
-    Task UpdateStatusAsync(
-        string metaMessageId,
-        string status,
-        string? failureReason = null);
+
+    Task<WhatsAppMessage?> GetByMetaMessageIdAsync(string metaMessageId);
+
+    Task UpdateAsync(WhatsAppMessage message);
+
+    Task UpdateStatusAsync(string metaMessageId,string status);
 }

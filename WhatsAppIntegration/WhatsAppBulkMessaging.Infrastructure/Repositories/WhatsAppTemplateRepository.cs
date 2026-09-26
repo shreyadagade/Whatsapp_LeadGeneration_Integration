@@ -70,18 +70,32 @@ public class WhatsAppTemplateRepository : IWhatsAppTemplateRepository
     }
 
     public async Task<WhatsAppTemplate?> GetByNameAsync(string templateName,
-        string languageCode)
+            string languageCode)
     {
         return await _context.WhatsAppTemplates
             .FirstOrDefaultAsync(x =>
                 x.TemplateName == templateName &&
-                x.LanguageCode == languageCode &&
-                x.IsActive);
+                x.LanguageCode == languageCode);
     }
 
     public async Task AddAsync(WhatsAppTemplate template)
     {
         await _context.WhatsAppTemplates.AddAsync(template);
         await _context.SaveChangesAsync();
+    }
+
+    public async Task UpdateAsync(WhatsAppTemplate template)
+    {
+        _context.WhatsAppTemplates.Update(template);
+
+        await _context.SaveChangesAsync();
+    }
+
+    public async Task<WhatsAppTemplate?> GetByIdAsync(int id)
+    {
+        return await _context.WhatsAppTemplates
+            .FirstOrDefaultAsync(x =>
+                x.Id == id &&
+                x.IsActive);
     }
 }
