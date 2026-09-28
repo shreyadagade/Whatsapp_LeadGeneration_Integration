@@ -303,19 +303,22 @@ public class WhatsAppController : ControllerBase
     private readonly IWhatsAppTemplateRepository _templateRepository;
     private readonly IExcelService _excelService;
     private readonly IRecipientValidationService _recipientValidationService;
+    private readonly IWhatsAppMetaService _metaService;
 
     public WhatsAppController(
         IWhatsAppService messageService,
         IWhatsAppMessageRepository messageRepository,
         IWhatsAppTemplateRepository templateRepository,
         IExcelService excelService,
-        IRecipientValidationService recipientValidationService)
+        IRecipientValidationService recipientValidationService,
+        IWhatsAppMetaService metaService)
     {
         _messageService = messageService;
         _messageRepository = messageRepository;
         _templateRepository = templateRepository;
         _excelService = excelService;
         _recipientValidationService = recipientValidationService;
+        _metaService = metaService;
     }
 
     [HttpPost("send")]
@@ -333,8 +336,7 @@ public class WhatsAppController : ControllerBase
             });
         }
 
-        var messageId =
-            await _messageService.SendTemplateMessageAsync(request);
+        var messageId = await _messageService.SendTemplateMessageAsync(request);
 
         var message = new WhatsAppMessage
         {
@@ -374,9 +376,7 @@ public class WhatsAppController : ControllerBase
         ".tsv"
     };
 
-        var extension = Path.GetExtension(
-            request.File.FileName);
-
+        var extension = Path.GetExtension(request.File.FileName);
 
         if (!allowedExtensions.Contains(
             extension,
@@ -401,6 +401,36 @@ public class WhatsAppController : ControllerBase
             });
         }
 
+        string? headerMediaId = null;
+
+        if (request.HeaderImage is not null &&
+            request.HeaderImage.Length > 0)
+        {
+            var allowedImageTypes = new[]
+            {
+            "image/jpeg",
+            "image/png"
+        };
+
+            if (!allowedImageTypes.Contains(
+                request.HeaderImage.ContentType,
+                StringComparer.OrdinalIgnoreCase))
+            {
+                return BadRequest(new
+                {
+                    message = "Only JPG and PNG images are supported."
+                });
+            }
+
+            await using var imageStream =
+                request.HeaderImage.OpenReadStream();
+
+            headerMediaId = await _metaService.UploadMediaAsync(
+                imageStream,
+                request.HeaderImage.FileName,
+                request.HeaderImage.ContentType);
+        }
+
         var recipients =
             await _excelService.ReadRecipientsAsync(
                 stream,
@@ -409,78 +439,113 @@ public class WhatsAppController : ControllerBase
         var validationResults =
             _recipientValidationService.Validate(recipients);
 
-        var sentMessages = new List<object>();
-
-        foreach (var recipient in validationResults.Where(x => x.IsValid))
+        if (!validationResults.Any(x => x.IsValid))
         {
-            var sendRequest = new MetaSendMessageRequestDto
+            return BadRequest(new
             {
-                To = recipient.NormalizedPhoneNumber!,
-                Type = "template",
-                Template = new MetaSendTemplateDto
-                {
-                    Name = template.TemplateName,
-                    Language = new MetaSendTemplateLanguageDto
-                    {
-                        Code = template.LanguageCode
-                    },
-                    Components = BuildTemplateComponents(
-                        recipient.CandidateName)
-                }
-            };
-
-            try
-            {
-                var messageId =
-                    await _messageService.SendTemplateMessageAsync(
-                        sendRequest);
-
-                var message = new WhatsAppMessage
-                {
-                    PhoneNumber = recipient.NormalizedPhoneNumber!,
-                    CandidateName = recipient.CandidateName,
-                    WhatsAppTemplateId = template.Id,
-                    Status = "Sent",
-                    MetaMessageId = messageId,
-                    CreatedAt = DateTime.UtcNow,
-                    SentAt = DateTime.UtcNow
-                };
-
-                await _messageRepository.AddAsync(message);
-
-                sentMessages.Add(new
-                {
-                    rowNumber = recipient.RowNumber,
-                    phoneNumber = recipient.NormalizedPhoneNumber,
-                    status = "Sent",
-                    messageId
-                });
-            }
-            catch (Exception ex)
-            {
-                var failedMessage = new WhatsAppMessage
-                {
-                    PhoneNumber = recipient.NormalizedPhoneNumber!,
-                    CandidateName = recipient.CandidateName,
-                    WhatsAppTemplateId = template.Id,
-                    Status = "Failed",
-                    ErrorMessage = ex.Message,
-                    RetryCount = 0,
-                    CreatedAt = DateTime.UtcNow,
-                    FailedAt = DateTime.UtcNow
-                };
-
-                await _messageRepository.AddAsync(failedMessage);
-
-                sentMessages.Add(new
-                {
-                    rowNumber = recipient.RowNumber,
-                    phoneNumber = recipient.NormalizedPhoneNumber,
-                    status = "Failed",
-                    error = ex.Message
-                });
-            }
+                message = "No valid recipients were found.",
+                totalRecipients = recipients.Count,
+                invalidRecipients = validationResults.Count(x => !x.IsValid),
+                recipients = validationResults
+            });
         }
+
+        var sentMessages = new System.Collections.Concurrent.ConcurrentBag<object>();
+
+        var semaphore = new SemaphoreSlim(10);
+
+        var templateId = template.Id;
+        var templateName = template.TemplateName;
+        var languageCode = template.LanguageCode;
+        var bodyParameterCount = template.BodyParameterCount;
+
+        var tasks = validationResults
+            .Where(x => x.IsValid)
+            .Select(async recipient =>
+            {
+                await semaphore.WaitAsync();
+
+                try
+                {
+                    var sendRequest = new MetaSendMessageRequestDto
+                    {
+                        To = recipient.NormalizedPhoneNumber!,
+                        Type = "template",
+                        Template = new MetaSendTemplateDto
+                        {
+                            Name = templateName,
+                            Language = new MetaSendTemplateLanguageDto
+                            {
+                                Code = languageCode
+                            },
+                            Components = BuildTemplateComponents(
+                                bodyParameterCount,
+                                recipient.CandidateName,
+                                headerMediaId)
+                        }
+                    };
+
+                    try
+                    {
+                        var messageId =
+                            await _messageService.SendTemplateMessageAsync(
+                                sendRequest);
+
+                        var message = new WhatsAppMessage
+                        {
+                            PhoneNumber = recipient.NormalizedPhoneNumber!,
+                            CandidateName = recipient.CandidateName,
+                            WhatsAppTemplateId = templateId,
+                            Status = "Sent",
+                            MetaMessageId = messageId,
+                            CreatedAt = DateTime.UtcNow,
+                            SentAt = DateTime.UtcNow
+                        };
+
+                        await _messageRepository.AddAsync(message);
+
+                        sentMessages.Add(new
+                        {
+                            rowNumber = recipient.RowNumber,
+                            phoneNumber = recipient.NormalizedPhoneNumber,
+                            status = "Sent",
+                            messageId
+                        });
+                    }
+                    catch (Exception ex)
+                    {
+                        var failedMessage = new WhatsAppMessage
+                        {
+                            PhoneNumber = recipient.NormalizedPhoneNumber!,
+                            CandidateName = recipient.CandidateName,
+                            WhatsAppTemplateId = templateId,
+                            Status = "Failed",
+                            ErrorMessage = ex.Message,
+                            RetryCount = 0,
+                            CreatedAt = DateTime.UtcNow,
+                            FailedAt = DateTime.UtcNow
+                        };
+
+                        await _messageRepository.AddAsync(failedMessage);
+
+                        sentMessages.Add(new
+                        {
+                            rowNumber = recipient.RowNumber,
+                            phoneNumber = recipient.NormalizedPhoneNumber,
+                            status = "Failed",
+                            error = ex.Message
+                        });
+                    }
+                }
+                finally
+                {
+                    semaphore.Release();
+                }
+            });
+
+        await Task.WhenAll(tasks);
+
+        semaphore.Dispose();
 
         return Ok(new
         {
@@ -490,31 +555,96 @@ public class WhatsAppController : ControllerBase
             validRecipients = validationResults.Count(x => x.IsValid),
             invalidRecipients = validationResults.Count(x => !x.IsValid),
             recipients = validationResults,
-            sentMessages
+            sentMessages = sentMessages.ToList()
         });
     }
 
-    private static List<MetaSendTemplateComponentDto> BuildTemplateComponents(string? candidateName)
+    private static List<MetaSendTemplateComponentDto> BuildTemplateComponents(
+            int bodyParameterCount,
+            string? candidateName,
+            string? headerMediaId)
     {
-        if (string.IsNullOrWhiteSpace(candidateName))
+        var components = new List<MetaSendTemplateComponentDto>();
+
+        if (!string.IsNullOrWhiteSpace(headerMediaId))
         {
-            return [];
+            components.Add(
+                new MetaSendTemplateComponentDto
+                {
+                    Type = "header",
+                    Parameters =
+                    [
+                        new MetaSendTemplateParameterDto
+                    {
+                        Type = "image",
+                        Image = new MetaSendTemplateImageDto
+                        {
+                            Id = headerMediaId
+                        }
+                    }
+                    ]
+                });
         }
 
-        return
-        [
-            new MetaSendTemplateComponentDto
+        if (bodyParameterCount > 0 &&
+            !string.IsNullOrWhiteSpace(candidateName))
         {
-            Type = "body",
-            Parameters =
-            [
-                new MetaSendTemplateParameterDto
+            components.Add(
+                new MetaSendTemplateComponentDto
                 {
-                    Type = "text",
-                    Text = candidateName
-                }
-            ]
+                    Type = "body",
+                    Parameters =
+                    [
+                        new MetaSendTemplateParameterDto
+                    {
+                        Type = "text",
+                        Text = candidateName
+                    }
+                    ]
+                });
         }
-        ];
+
+        return components;
+    }
+
+    [HttpPost("upload-media")]
+    public async Task<IActionResult> UploadMedia(IFormFile file)
+    {
+        if (file == null || file.Length == 0)
+        {
+            return BadRequest(new
+            {
+                message = "Image file is required."
+            });
+        }
+
+        var allowedContentTypes = new[]
+        {
+        "image/jpeg",
+        "image/png"
+    };
+
+        if (!allowedContentTypes.Contains(
+            file.ContentType,
+            StringComparer.OrdinalIgnoreCase))
+        {
+            return BadRequest(new
+            {
+                message = "Only JPG and PNG images are supported."
+            });
+        }
+
+        await using var stream = file.OpenReadStream();
+
+        var mediaId = await _metaService.UploadMediaAsync(
+            stream,
+            file.FileName,
+            file.ContentType);
+
+        return Ok(new
+        {
+            message = "Media uploaded successfully.",
+            mediaId
+        });
     }
 }

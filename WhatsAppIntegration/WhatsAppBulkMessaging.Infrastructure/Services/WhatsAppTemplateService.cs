@@ -114,6 +114,24 @@ public class WhatsAppTemplateService : IWhatsAppTemplateService
 
         foreach (var metaTemplate in approvedTemplates)
         {
+            var bodyComponent = metaTemplate.Components
+            .FirstOrDefault(x =>
+            string.Equals(
+            x.Type,
+            "BODY",
+            StringComparison.OrdinalIgnoreCase));
+
+            var bodyParameterCount = 0;
+
+            if (bodyComponent is not null && !string.IsNullOrWhiteSpace(bodyComponent.Text))
+            {
+                bodyParameterCount = System.Text.RegularExpressions.Regex
+                    .Matches(bodyComponent.Text, @"\{\{\d+\}\}")
+                    .Count;
+            }
+
+            metaTemplate.BodyParameterCount = bodyParameterCount;
+
             var existingTemplate = await _repository.GetByNameAsync(
                 metaTemplate.Name,
                 metaTemplate.Language);
@@ -124,6 +142,7 @@ public class WhatsAppTemplateService : IWhatsAppTemplateService
                 {
                     TemplateName = metaTemplate.Name,
                     LanguageCode = metaTemplate.Language,
+                    BodyParameterCount = metaTemplate.BodyParameterCount,
                     IsActive = true,
                     CreatedAt = DateTime.UtcNow,
                     LastSyncedAt = DateTime.UtcNow
@@ -134,6 +153,8 @@ public class WhatsAppTemplateService : IWhatsAppTemplateService
             else
             {
                 existingTemplate.IsActive = true;
+                existingTemplate.BodyParameterCount =
+                    metaTemplate.BodyParameterCount;
                 existingTemplate.LastSyncedAt = DateTime.UtcNow;
                 existingTemplate.UpdatedAt = DateTime.UtcNow;
 

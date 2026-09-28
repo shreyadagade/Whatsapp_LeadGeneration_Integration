@@ -18,4 +18,6 @@ public class SendBulkMessageRequest
     public IFormFile File { get; set; } = null!;
 
     public int WhatsAppTemplateId { get; set; }
+
+    public IFormFile? HeaderImage { get; set; }
 }

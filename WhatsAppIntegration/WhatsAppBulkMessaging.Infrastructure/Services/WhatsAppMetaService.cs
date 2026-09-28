@@ -45,6 +45,57 @@ public class WhatsAppMetaService : IWhatsAppMetaService, IWhatsAppService
         return result ?? new MetaTemplateResponseDto();
     }
 
+    public async Task<string> UploadMediaAsync(
+    Stream fileStream,
+    string fileName,
+    string contentType)
+    {
+        var url =
+            $"{_options.BaseUrl}/{_options.ApiVersion}/{_options.PhoneNumberId}/media";
+
+        using var form = new MultipartFormDataContent();
+
+        var fileContent = new StreamContent(fileStream);
+        fileContent.Headers.ContentType =
+            new System.Net.Http.Headers.MediaTypeHeaderValue(contentType);
+
+        form.Add(fileContent, "file", fileName);
+        form.Add(
+            new StringContent("whatsapp"),
+            "messaging_product");
+
+        using var request = new HttpRequestMessage(
+            HttpMethod.Post,
+            url);
+
+        request.Headers.Authorization =
+            new System.Net.Http.Headers.AuthenticationHeaderValue(
+                "Bearer",
+                _options.AccessToken);
+
+        request.Content = form;
+
+        using var response = await _httpClient.SendAsync(request);
+
+        var content = await response.Content.ReadAsStringAsync();
+
+        if (!response.IsSuccessStatusCode)
+        {
+            throw new HttpRequestException(
+                $"Meta media upload error ({(int)response.StatusCode}): {content}");
+        }
+
+        using var document =
+            System.Text.Json.JsonDocument.Parse(content);
+
+        if (document.RootElement.TryGetProperty("id", out var id))
+        {
+            return id.GetString() ?? string.Empty;
+        }
+
+        throw new InvalidOperationException(
+            "Meta media upload succeeded but media ID was not returned.");
+    }
     public async Task<string> SendTemplateMessageAsync(MetaSendMessageRequestDto request)
     {
         var url =

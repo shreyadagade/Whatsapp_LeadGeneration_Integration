@@ -25,6 +25,8 @@ public class WhatsAppTemplate
 
     public string LanguageCode { get; set; } = string.Empty;
 
+    public int BodyParameterCount { get; set; }
+
     public bool IsActive { get; set; } = true;
 
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;

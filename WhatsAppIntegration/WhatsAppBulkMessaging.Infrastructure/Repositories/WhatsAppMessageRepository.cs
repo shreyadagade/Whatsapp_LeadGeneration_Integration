@@ -58,38 +58,45 @@ namespace WhatsAppBulkMessaging.Infrastructure.Repositories;
 
 public class WhatsAppMessageRepository : IWhatsAppMessageRepository
 {
-    private readonly AppDbContext _context;
+    private readonly IDbContextFactory<AppDbContext> _contextFactory;
 
-    public WhatsAppMessageRepository(AppDbContext context)
+    public WhatsAppMessageRepository(
+        IDbContextFactory<AppDbContext> contextFactory)
     {
-        _context = context;
+        _contextFactory = contextFactory;
     }
 
     public async Task AddAsync(WhatsAppMessage message)
     {
-        await _context.WhatsAppMessages.AddAsync(message);
-        await _context.SaveChangesAsync();
+        await using var context = await _contextFactory.CreateDbContextAsync();
+
+        await context.WhatsAppMessages.AddAsync(message);
+        await context.SaveChangesAsync();
     }
 
     public async Task<WhatsAppMessage?> GetByMetaMessageIdAsync(
         string metaMessageId)
     {
-        return await _context.WhatsAppMessages
+        await using var context = await _contextFactory.CreateDbContextAsync();
+
+        return await context.WhatsAppMessages
             .FirstOrDefaultAsync(x =>
                 x.MetaMessageId == metaMessageId);
     }
 
     public async Task UpdateAsync(WhatsAppMessage message)
     {
-        _context.WhatsAppMessages.Update(message);
-        await _context.SaveChangesAsync();
+        await using var context = await _contextFactory.CreateDbContextAsync();
+
+        context.WhatsAppMessages.Update(message);
+        await context.SaveChangesAsync();
     }
 
-    public async Task UpdateStatusAsync(
-        string metaMessageId,
-        string status)
+    public async Task UpdateStatusAsync(string metaMessageId,string status)
     {
-        var message = await _context.WhatsAppMessages
+        await using var context = await _contextFactory.CreateDbContextAsync();
+
+        var message = await context.WhatsAppMessages
             .FirstOrDefaultAsync(x =>
                 x.MetaMessageId == metaMessageId);
 
@@ -101,7 +108,7 @@ public class WhatsAppMessageRepository : IWhatsAppMessageRepository
         message.Status = status;
         message.UpdatedAt = DateTime.UtcNow;
 
-        await _context.SaveChangesAsync();
+        await context.SaveChangesAsync();
     }
 }
 

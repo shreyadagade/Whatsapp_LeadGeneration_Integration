@@ -54,7 +54,13 @@ public static class DependencyInjection
 
         services.AddDbContext<AppDbContext>(options =>
             options.UseSqlServer(
-                configuration.GetConnectionString("DefaultConnection")));
+        configuration.GetConnectionString("DefaultConnection")));
+
+        services.AddDbContextFactory<AppDbContext>(
+            options =>
+                options.UseSqlServer(
+                    configuration.GetConnectionString("DefaultConnection")),
+            ServiceLifetime.Scoped);
 
         services.AddScoped<IWhatsAppTemplateRepository, WhatsAppTemplateRepository>();
         services.AddScoped<IWhatsAppTemplateService, WhatsAppTemplateService>();
