@@ -32,4 +32,6 @@ public class WhatsAppMessage
     public DateTime? FailedAt { get; set; }
 
     public DateTime? UpdatedAt { get; set; }
+    public string? ReplyMessage { get; set; }
+    public DateTime? ReplyReceivedAt { get; set; }
 }

@@ -117,3 +117,70 @@
 //        }
 //    }
 //}
+
+
+using Microsoft.AspNetCore.Mvc;
+using WhatsAppBulkMessaging.API.Models;
+using WhatsAppBulkMessaging.Application.Interfaces;
+
+namespace WhatsAppBulkMessaging.API.Controllers;
+
+[ApiController]
+[Route("api/whatsapp/webhook")]
+public class WhatsAppWebhookController : ControllerBase
+{
+    private readonly IWhatsAppMessageRepository _messageRepository;
+    private readonly IConfiguration _configuration;
+
+    public WhatsAppWebhookController(
+        IWhatsAppMessageRepository messageRepository,
+        IConfiguration configuration)
+    {
+        _messageRepository = messageRepository;
+        _configuration = configuration;
+    }
+
+    [HttpGet]
+    public IActionResult Verify(
+        [FromQuery(Name = "hub.mode")] string? mode,
+        [FromQuery(Name = "hub.verify_token")] string? verifyToken,
+        [FromQuery(Name = "hub.challenge")] string? challenge)
+    {
+        if (mode == "subscribe" && verifyToken == _configuration["WhatsApp:VerifyToken"])
+        {
+            return Ok(challenge);
+        }
+
+        return Unauthorized();
+    }
+
+    [HttpPost]
+    public async Task<IActionResult> Receive(WhatsAppWebhookDto payload)
+    {
+        foreach (var entry in payload.Entry)
+        {
+            foreach (var change in entry.Changes)
+            {
+                if (change.Value is null)
+                {
+                    continue;
+                }
+
+                foreach (var status in change.Value.Statuses)
+                {
+                    if (string.IsNullOrWhiteSpace(status.Id) ||
+                        string.IsNullOrWhiteSpace(status.Status))
+                    {
+                        continue;
+                    }
+
+                    await _messageRepository.UpdateStatusAsync(
+                        status.Id,
+                        status.Status);
+                }
+            }
+        }
+
+        return Ok();
+    }
+}
