@@ -23,5 +23,9 @@ public interface IWhatsAppMessageRepository
 
     Task UpdateAsync(WhatsAppMessage message);
 
-    Task UpdateStatusAsync(string metaMessageId,string status);
+    Task UpdateStatusAsync(string metaMessageId,string status,DateTime? statusTime);
+
+    Task<WhatsAppMessage?> GetLatestByPhoneNumberAsync(string phoneNumber);
+
+    Task UpdateReplyAsync(long messageId,string replyMessage,DateTime replyReceivedAt);
 }

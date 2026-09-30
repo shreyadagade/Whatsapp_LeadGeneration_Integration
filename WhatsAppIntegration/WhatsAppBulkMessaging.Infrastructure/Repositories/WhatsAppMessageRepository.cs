@@ -92,20 +92,64 @@ public class WhatsAppMessageRepository : IWhatsAppMessageRepository
         await context.SaveChangesAsync();
     }
 
-    public async Task UpdateStatusAsync(string metaMessageId,string status)
+    public async Task UpdateStatusAsync(string metaMessageId,string status,DateTime? statusTime)
     {
         await using var context = await _contextFactory.CreateDbContextAsync();
 
         var message = await context.WhatsAppMessages
-            .FirstOrDefaultAsync(x =>
-                x.MetaMessageId == metaMessageId);
+            .FirstOrDefaultAsync(x => x.MetaMessageId == metaMessageId);
 
         if (message is null)
-        {
             return;
-        }
 
         message.Status = status;
+        message.UpdatedAt = DateTime.UtcNow;
+
+        switch (status.ToLowerInvariant())
+        {
+            case "sent":
+                message.SentAt = statusTime;
+                break;
+
+            case "delivered":
+                message.DeliveredAt = statusTime;
+                break;
+
+            case "read":
+                message.ReadAt = statusTime;
+                break;
+
+            case "failed":
+                message.FailedAt = statusTime;
+                break;
+        }
+
+        await context.SaveChangesAsync();
+    }
+    public async Task<WhatsAppMessage?> GetLatestByPhoneNumberAsync(string phoneNumber)
+    {
+        await using var context =
+            await _contextFactory.CreateDbContextAsync();
+
+        return await context.WhatsAppMessages
+            .Where(x => x.PhoneNumber == phoneNumber)
+            .OrderByDescending(x => x.CreatedAt)
+            .FirstOrDefaultAsync();
+    }
+
+    public async Task UpdateReplyAsync(long messageId,string replyMessage,DateTime replyReceivedAt)
+    {
+        await using var context =
+            await _contextFactory.CreateDbContextAsync();
+
+        var message = await context.WhatsAppMessages
+            .FirstOrDefaultAsync(x => x.Id == messageId);
+
+        if (message is null)
+            return;
+
+        message.ReplyMessage = replyMessage;
+        message.ReplyReceivedAt = replyReceivedAt;
         message.UpdatedAt = DateTime.UtcNow;
 
         await context.SaveChangesAsync();
