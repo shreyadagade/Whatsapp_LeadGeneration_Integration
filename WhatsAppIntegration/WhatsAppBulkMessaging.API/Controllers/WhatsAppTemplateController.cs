@@ -26,14 +26,6 @@ public class WhatsAppTemplatesController : ControllerBase
         return Ok(templates);
     }
 
-    //[HttpGet("meta")]
-    //public async Task<IActionResult> GetMetaTemplates()
-    //{
-    //    var templates = await _metaService.GetTemplatesAsync();
-
-    //    return Ok(templates);
-    //}
-
     //[HttpPost("sync")]
     //public async Task<IActionResult> SyncTemplates()
     //{

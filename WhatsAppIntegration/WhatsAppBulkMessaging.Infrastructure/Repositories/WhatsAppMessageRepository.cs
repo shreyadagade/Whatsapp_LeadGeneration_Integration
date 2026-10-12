@@ -152,4 +152,27 @@ public class WhatsAppMessageRepository : IWhatsAppMessageRepository
 
         await context.SaveChangesAsync();
     }
+
+    public async Task<List<WhatsAppMessage>> GetAllAsync()
+    {
+        await using var context =
+            await _contextFactory.CreateDbContextAsync();
+
+        return await context.WhatsAppMessages
+            .AsNoTracking()
+            .OrderByDescending(x => x.CreatedAt)
+            .ToListAsync();
+    }
+
+    public async Task<List<WhatsAppMessage>> GetByPhoneNumberAsync(string phoneNumber)
+    {
+        await using var context =
+            await _contextFactory.CreateDbContextAsync();
+
+        return await context.WhatsAppMessages
+            .AsNoTracking()
+            .Where(x => x.PhoneNumber.EndsWith(phoneNumber))
+            .OrderByDescending(x => x.CreatedAt)
+            .ToListAsync();
+    }
 }

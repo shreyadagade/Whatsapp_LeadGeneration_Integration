@@ -12,15 +12,19 @@ public class WhatsAppWebhookController : ControllerBase
 {
     private readonly WhatsAppOptions _options;
     private readonly IWhatsAppMessageRepository _messageRepository;
+    private readonly IWhatsAppTemplateService _templateService;
 
     public WhatsAppWebhookController(
         IOptions<WhatsAppOptions> options,
-        IWhatsAppMessageRepository messageRepository)
+        IWhatsAppMessageRepository messageRepository,
+        IWhatsAppTemplateService templateService)
     {
         _options = options.Value;
         _messageRepository = messageRepository;
+        _templateService = templateService;
     }
 
+    // 1. Meta webhook verification
     [HttpGet]
     public IActionResult Verify(
         [FromQuery(Name = "hub.mode")] string? mode,
@@ -38,22 +42,36 @@ public class WhatsAppWebhookController : ControllerBase
         return Unauthorized();
     }
 
+    // 2. Receive Meta webhook notifications
     [HttpPost]
-    public async Task<IActionResult> Receive(WhatsAppWebhookDto payload)
+    public async Task<IActionResult> Receive(
+        [FromBody] WhatsAppWebhookDto payload)
     {
-        if (payload.Entry is null)
+        if (payload.Entry is null || payload.Entry.Count == 0)
             return Ok();
 
         foreach (var entry in payload.Entry)
         {
             foreach (var change in entry.Changes)
             {
+                // A. Automatically synchronize WhatsApp templates
+                // when Meta sends a template status update event.
+                if (string.Equals(
+                    change.Field,
+                    "message_template_status_update",
+                    StringComparison.OrdinalIgnoreCase))
+                {
+                    await _templateService.SyncTemplatesAsync();
+                    continue;
+                }
+
                 var value = change.Value;
 
                 if (value is null)
                     continue;
 
-                // 1. Outgoing message status notifications
+                // B. Update outgoing message statuses:
+                // sent, delivered, read, failed
                 foreach (var statusUpdate in value.Statuses)
                 {
                     if (string.IsNullOrWhiteSpace(statusUpdate.Id) ||
@@ -66,8 +84,8 @@ public class WhatsAppWebhookController : ControllerBase
 
                     if (long.TryParse(
                         statusUpdate.Timestamp,
-                        System.Globalization.NumberStyles.Integer,
-                        System.Globalization.CultureInfo.InvariantCulture,
+                        NumberStyles.Integer,
+                        CultureInfo.InvariantCulture,
                         out var unixTimestamp))
                     {
                         statusTime = DateTimeOffset
@@ -90,7 +108,7 @@ public class WhatsAppWebhookController : ControllerBase
                         errorMessage);
                 }
 
-                // 2. Incoming customer replies
+                // C. Save incoming customer replies
                 foreach (var incoming in value.Messages)
                 {
                     if (string.IsNullOrWhiteSpace(incoming.From))
@@ -104,14 +122,15 @@ public class WhatsAppWebhookController : ControllerBase
                     }
                     else
                     {
-                        // Preserve the type of non-text messages.
-                        replyText = $"[{incoming.Type ?? "unknown"} message received]";
+                        replyText =
+                            $"[{incoming.Type ?? "unknown"} message received]";
                     }
 
                     WhatsAppBulkMessaging.Domain.Entities.WhatsAppMessage?
                         outgoingMessage = null;
 
-                    // Prefer the exact message the customer replied to.
+                    // First, find the exact outgoing message
+                    // to which the customer replied.
                     if (!string.IsNullOrWhiteSpace(incoming.Context?.Id))
                     {
                         outgoingMessage =
@@ -119,7 +138,8 @@ public class WhatsAppWebhookController : ControllerBase
                                 incoming.Context.Id);
                     }
 
-                    // Fallback for replies that have no context.id.
+                    // If context.id is unavailable, use the latest
+                    // outgoing message for this phone number.
                     if (outgoingMessage is null)
                     {
                         outgoingMessage =
@@ -134,8 +154,8 @@ public class WhatsAppWebhookController : ControllerBase
 
                     if (long.TryParse(
                         incoming.Timestamp,
-                        System.Globalization.NumberStyles.Integer,
-                        System.Globalization.CultureInfo.InvariantCulture,
+                        NumberStyles.Integer,
+                        CultureInfo.InvariantCulture,
                         out var replyTimestamp))
                     {
                         replyReceivedAt = DateTimeOffset

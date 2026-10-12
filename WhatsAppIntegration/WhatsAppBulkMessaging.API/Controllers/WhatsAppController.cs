@@ -1,291 +1,4 @@
-﻿//using Microsoft.AspNetCore.Mvc;
-//using WhatsAppBulkMessaging.API.Models;
-//using WhatsAppBulkMessaging.Application.Interfaces;
-//using WhatsAppBulkMessaging.Application.Validators;
-//using WhatsAppBulkMessaging.Domain.Entities;
-
-//namespace WhatsAppBulkMessaging.API.Controllers;
-
-//[ApiController]
-//[Route("api/[controller]")]
-//public class WhatsAppController : ControllerBase
-//{
-//    private readonly IExcelService _excelService;
-//    private readonly IWhatsAppService _whatsAppService;
-//    private readonly ILogger<WhatsAppController> _logger;
-//    private readonly IWhatsAppTemplateRepository _templateRepository;
-//    private readonly IWhatsAppMessageRepository _messageRepository;
-
-//    public WhatsAppController(
-//        IExcelService excelService,
-//        IWhatsAppService whatsAppService,
-//        ILogger<WhatsAppController> logger,
-//        IWhatsAppTemplateRepository templateRepository,
-//        IWhatsAppMessageRepository messageRepository)
-//    {
-//        _excelService = excelService;
-//        _whatsAppService = whatsAppService;
-//        _logger = logger;
-//        _templateRepository = templateRepository;
-//        _messageRepository = messageRepository;
-//    }
-
-//    [HttpPost("send-bulk")]
-//    [Consumes("multipart/form-data")]
-//    public async Task<IActionResult> SendBulk([FromForm] SendBulkMessageRequest request)
-//    {
-//        if (request.File == null || request.File.Length == 0)
-//        {
-//            return BadRequest(new
-//            {
-//                StatusCode = StatusCodes.Status400BadRequest,
-//                Message = "Excel file is required."
-//            });
-//        }
-
-//        var allowedExtensions = new[]
-//        {
-//            ".xlsx",
-//            ".xls",
-//            ".csv",
-//            ".tsv"
-//        };
-
-//        var fileExtension = Path.GetExtension(request.File.FileName);
-
-//        if (!allowedExtensions.Contains(fileExtension, StringComparer.OrdinalIgnoreCase))
-//        {
-//            return BadRequest(new
-//            {
-//                StatusCode = StatusCodes.Status400BadRequest,
-//                Message = "Only .xlsx, .xls, .csv and .tsv files are allowed."
-//            });
-//        }
-
-//        if (string.IsNullOrWhiteSpace(request.TemplateName))
-//        {
-//            return BadRequest(new
-//            {
-//                StatusCode = StatusCodes.Status400BadRequest,
-//                Message = "Template name is required."
-//            });
-//        }
-
-//        var template = await _templateRepository.GetByTemplateNameAsync(request.TemplateName.Trim());
-
-//        if (template == null)
-//        {
-//            return BadRequest(new
-//            {
-//                StatusCode = StatusCodes.Status400BadRequest,
-//                Message =
-//                    $"WhatsApp template '{request.TemplateName}' was not found or is inactive."
-//            });
-//        }
-
-//        using var stream = request.File.OpenReadStream();
-
-//        var recipients = await _excelService.ReadRecipientsAsync(stream, request.File.FileName);
-
-//        recipients = recipients.GroupBy(x => x.PhoneNumber.Trim())
-//            .Select(x => x.First())
-//            .ToList();
-
-//        if (recipients.Count > 500)
-//        {
-//            return BadRequest(new
-//            {
-//                StatusCode = StatusCodes.Status400BadRequest,
-//                Message =
-//                    "Maximum 500 unique recipients are allowed per Excel file."
-//            });
-//        }
-
-//        if (recipients.Count == 0)
-//        {
-//            return BadRequest(new
-//            {
-//                StatusCode = StatusCodes.Status400BadRequest,
-//                Message = "No recipients found in the Excel file."
-//            });
-//        }
-
-//        var results = new List<object>();
-
-//        foreach (var recipient in recipients)
-//        {
-//            if (!PhoneNumberValidator.IsValidIndianMobileNumber(
-//                    recipient.PhoneNumber))
-//            {
-//                results.Add(new
-//                {
-//                    PhoneNumber = recipient.PhoneNumber,
-//                    Status = "Failed",
-//                    MessageId = (string?)null,
-//                    Reason = "Invalid Indian mobile number."
-//                });
-
-//                continue;
-//            }
-
-//            try
-//            {
-//                var messageId = await _whatsAppService.SendTemplateMessageAsync(
-//                            recipient.PhoneNumber,
-//                            template);
-
-//                await _messageRepository.AddAsync(
-//                    new WhatsAppMessage
-//                    {
-//                        PhoneNumber = recipient.PhoneNumber,
-//                        TemplateName = template.TemplateName,
-//                        MetaMessageId = messageId,
-//                        Status = "Accepted",
-//                        CreatedAt = DateTime.UtcNow
-//                    });
-
-//                results.Add(new
-//                {
-//                    PhoneNumber = recipient.PhoneNumber,
-//                    Status = "Accepted",
-//                    MessageId = messageId
-//                });
-//            }
-//            catch (Exception ex)
-//            {
-//                await _messageRepository.AddAsync(
-//                    new WhatsAppMessage
-//                    {
-//                        PhoneNumber = recipient.PhoneNumber,
-//                        TemplateName = template.TemplateName,
-//                        MetaMessageId = null,
-//                        Status = "Failed",
-//                        FailureReason =
-//                            "Failed to send WhatsApp message.",
-//                        CreatedAt = DateTime.UtcNow
-//                    });
-
-//                _logger.LogError(
-//                    ex,
-//                    "Failed to send WhatsApp message to {PhoneNumber} using template {TemplateName}",
-//                    recipient.PhoneNumber,
-//                    request.TemplateName);
-
-//                results.Add(new
-//                {
-//                    PhoneNumber = recipient.PhoneNumber,
-//                    Status = "Failed",
-//                    MessageId = (string?)null,
-//                    Reason =
-//                        "Failed to send WhatsApp message. Please try again later."
-//                });
-//            }
-//        }
-
-//        return Ok(new
-//        {
-//            StatusCode = StatusCodes.Status200OK,
-//            Message = "Bulk WhatsApp message processing completed.",
-//            TemplateName = request.TemplateName,
-//            TotalRecipients = recipients.Count,
-//            Results = results
-//        });
-//    }
-
-//    [HttpPost("upload-media")]
-//    [Consumes("multipart/form-data")]
-//    public async Task<IActionResult> UploadMedia(int templateId, IFormFile file)
-//    {
-//        if (file == null || file.Length == 0)
-//        {
-//            return BadRequest(new
-//            {
-//                StatusCode = StatusCodes.Status400BadRequest,
-//                Message = "Image file is required."
-//            });
-//        }
-
-//        var extension = Path.GetExtension(file.FileName);
-
-//        if (!extension.Equals(
-//                ".jpg",
-//                StringComparison.OrdinalIgnoreCase) &&
-//            !extension.Equals(
-//                ".jpeg",
-//                StringComparison.OrdinalIgnoreCase) &&
-//            !extension.Equals(
-//                ".png",
-//                StringComparison.OrdinalIgnoreCase))
-//        {
-//            return BadRequest(new
-//            {
-//                StatusCode = StatusCodes.Status400BadRequest,
-//                Message = "Only JPG, JPEG and PNG images are allowed."
-//            });
-//        }
-
-//        using var stream = file.OpenReadStream();
-
-//        var mediaId =
-//            await _whatsAppService.UploadMediaAsync(
-//                stream,
-//                file.FileName);
-
-//        return Ok(new
-//        {
-//            StatusCode = StatusCodes.Status200OK,
-//            Message = "Image uploaded successfully.",
-//            MediaId = mediaId
-//        });
-//    }
-//}
-
-//using Microsoft.AspNetCore.Mvc;
-//using WhatsAppBulkMessaging.Application.DTOs;
-//using WhatsAppBulkMessaging.Application.Interfaces;
-//using WhatsAppBulkMessaging.Domain.Entities;
-
-//namespace WhatsAppBulkMessaging.API.Controllers;
-
-//[ApiController]
-//[Route("api/[controller]")]
-//public class WhatsAppController : ControllerBase
-//{
-//    private readonly IWhatsAppService _messageService;
-//    private readonly IWhatsAppMessageRepository _messageRepository;
-
-//    public WhatsAppController(IWhatsAppService messageService,
-//          IWhatsAppMessageRepository messageRepository)
-//    {
-//        _messageService = messageService;
-//        _messageRepository = messageRepository;
-//    }
-
-//    [HttpPost("send")]
-//    public async Task<IActionResult> Send(MetaSendMessageRequestDto request)
-//    {
-//        var messageId =
-//            await _messageService.SendTemplateMessageAsync(request);
-
-//        var message = new WhatsAppMessage
-//        {
-//            PhoneNumber = request.To,
-//            Status = "Sent",
-//            MetaMessageId = messageId,
-//            CreatedAt = DateTime.UtcNow,
-//            SentAt = DateTime.UtcNow
-//        };
-
-//        await _messageRepository.AddAsync(message);
-
-//        return Ok(new
-//        {
-//            messageId
-//        });
-//    }
-//}
-
-
+﻿
 using Microsoft.AspNetCore.Mvc;
 using WhatsAppBulkMessaging.API.Models;
 using WhatsAppBulkMessaging.Application.DTOs;
@@ -304,14 +17,15 @@ public class WhatsAppController : ControllerBase
     private readonly IExcelService _excelService;
     private readonly IRecipientValidationService _recipientValidationService;
     private readonly IWhatsAppMetaService _metaService;
-
+    private readonly IWhatsAppMessageHistoryService _messageHistoryService;
     public WhatsAppController(
         IWhatsAppService messageService,
         IWhatsAppMessageRepository messageRepository,
         IWhatsAppTemplateRepository templateRepository,
         IExcelService excelService,
         IRecipientValidationService recipientValidationService,
-        IWhatsAppMetaService metaService)
+        IWhatsAppMetaService metaService,
+        IWhatsAppMessageHistoryService messageHistoryService)
     {
         _messageService = messageService;
         _messageRepository = messageRepository;
@@ -319,44 +33,10 @@ public class WhatsAppController : ControllerBase
         _excelService = excelService;
         _recipientValidationService = recipientValidationService;
         _metaService = metaService;
+        _messageHistoryService = messageHistoryService;
     }
 
-    //[HttpPost("send")]
-    //public async Task<IActionResult> Send(MetaSendMessageRequestDto request)
-    //{
-    //    var template = await _templateRepository.GetByNameAsync(
-    //        request.Template.Name,
-    //        request.Template.Language.Code);
-
-    //    if (template is null)
-    //    {
-    //        return BadRequest(new
-    //        {
-    //            message = "The selected WhatsApp template was not found or is inactive."
-    //        });
-    //    }
-
-    //    var messageId = await _messageService.SendTemplateMessageAsync(request);
-
-    //    var message = new WhatsAppMessage
-    //    {
-    //        PhoneNumber = request.To,
-    //        WhatsAppTemplateId = template.Id,
-    //        Status = "Sent",
-    //        MetaMessageId = messageId,
-    //        CreatedAt = DateTime.UtcNow,
-    //        SentAt = DateTime.UtcNow
-    //    };
-
-    //    await _messageRepository.AddAsync(message);
-
-    //    return Ok(new
-    //    {
-    //        messageId
-    //    });
-    //}
-
-
+ 
     [HttpPost("send-bulk")]
     public async Task<IActionResult> SendBulk(SendBulkMessageRequest request)
     {
@@ -604,6 +284,33 @@ public class WhatsAppController : ControllerBase
         }
 
         return components;
+    }
+
+    [HttpGet("messages")]
+    public async Task<IActionResult> GetAllMessages()
+    {
+        var messages = await _messageHistoryService.GetAllMessagesAsync();
+
+        return Ok(messages);
+    }
+
+   
+    [HttpGet("messages/{phoneNumber}")]
+    public async Task<IActionResult> GetMessagesByPhoneNumber(string phoneNumber)
+    {
+        if (string.IsNullOrWhiteSpace(phoneNumber))
+        {
+            return BadRequest(new
+            {
+                message = "Phone number is required."
+            });
+        }
+
+        var messages =
+            await _messageHistoryService
+                .GetMessagesByPhoneNumberAsync(phoneNumber);
+
+        return Ok(messages);
     }
 
 //    [HttpPost("upload-media")]
