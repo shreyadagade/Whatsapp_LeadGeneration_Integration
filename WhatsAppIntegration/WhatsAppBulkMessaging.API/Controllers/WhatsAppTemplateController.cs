@@ -26,22 +26,22 @@ public class WhatsAppTemplatesController : ControllerBase
         return Ok(templates);
     }
 
-    [HttpGet("meta")]
-    public async Task<IActionResult> GetMetaTemplates()
-    {
-        var templates = await _metaService.GetTemplatesAsync();
+    //[HttpGet("meta")]
+    //public async Task<IActionResult> GetMetaTemplates()
+    //{
+    //    var templates = await _metaService.GetTemplatesAsync();
 
-        return Ok(templates);
-    }
+    //    return Ok(templates);
+    //}
 
-    [HttpPost("sync")]
-    public async Task<IActionResult> SyncTemplates()
-    {
-        await _templateService.SyncTemplatesAsync();
+    //[HttpPost("sync")]
+    //public async Task<IActionResult> SyncTemplates()
+    //{
+    //    await _templateService.SyncTemplatesAsync();
 
-        return Ok(new
-        {
-            message = "WhatsApp templates synchronized successfully."
-        });
-    }
+    //    return Ok(new
+    //    {
+    //        message = "WhatsApp templates synchronized successfully."
+    //    });
+    //}
 }
