@@ -1,55 +1,4 @@
-﻿//using Microsoft.EntityFrameworkCore;
-//using WhatsAppBulkMessaging.Application.Interfaces;
-//using WhatsAppBulkMessaging.Domain.Entities;
-//using WhatsAppBulkMessaging.Infrastructure.Data;
-
-//namespace WhatsAppBulkMessaging.Infrastructure.Repositories;
-
-//public class WhatsAppMessageRepository : IWhatsAppMessageRepository
-//{
-//    private readonly AppDbContext _context;
-//    public WhatsAppMessageRepository(AppDbContext context)
-//    {
-//        _context = context;
-//    }
-
-//    public async Task AddAsync(WhatsAppMessage message)
-//    {
-//        await _context.WhatsAppMessages.AddAsync(message);
-//        await _context.SaveChangesAsync();
-//    }
-
-//    public async Task UpdateStatusAsync(
-//        string metaMessageId,
-//        string status,
-//        string? failureReason = null)
-//    {
-//        var message = await _context.WhatsAppMessages
-//            .FirstOrDefaultAsync(x => x.MetaMessageId == metaMessageId);
-
-//        if (message == null)
-//            return;
-
-//        message.Status = status;
-//        message.FailureReason = failureReason;
-
-//        if (status.Equals("failed", StringComparison.OrdinalIgnoreCase))
-//        {
-//            message.UserFriendlyFailureReason =
-//                "Message could not be delivered to this recipient. Please try again later.";
-//        }
-//        else
-//        {
-//            message.UserFriendlyFailureReason = null;
-//        }
-
-//        message.UpdatedAt = DateTime.UtcNow;
-
-//        await _context.SaveChangesAsync();
-//    }
-//}
-
-using Microsoft.EntityFrameworkCore;
+﻿using Microsoft.EntityFrameworkCore;
 using WhatsAppBulkMessaging.Application.Interfaces;
 using WhatsAppBulkMessaging.Domain.Entities;
 using WhatsAppBulkMessaging.Infrastructure.Data;
@@ -68,7 +17,8 @@ public class WhatsAppMessageRepository : IWhatsAppMessageRepository
 
     public async Task AddAsync(WhatsAppMessage message)
     {
-        await using var context = await _contextFactory.CreateDbContextAsync();
+        await using var context =
+            await _contextFactory.CreateDbContextAsync();
 
         await context.WhatsAppMessages.AddAsync(message);
         await context.SaveChangesAsync();
@@ -77,7 +27,8 @@ public class WhatsAppMessageRepository : IWhatsAppMessageRepository
     public async Task<WhatsAppMessage?> GetByMetaMessageIdAsync(
         string metaMessageId)
     {
-        await using var context = await _contextFactory.CreateDbContextAsync();
+        await using var context =
+            await _contextFactory.CreateDbContextAsync();
 
         return await context.WhatsAppMessages
             .FirstOrDefaultAsync(x =>
@@ -86,47 +37,91 @@ public class WhatsAppMessageRepository : IWhatsAppMessageRepository
 
     public async Task UpdateAsync(WhatsAppMessage message)
     {
-        await using var context = await _contextFactory.CreateDbContextAsync();
+        await using var context =
+            await _contextFactory.CreateDbContextAsync();
 
         context.WhatsAppMessages.Update(message);
         await context.SaveChangesAsync();
     }
 
-    public async Task UpdateStatusAsync(string metaMessageId,string status,DateTime? statusTime)
+    public async Task UpdateStatusAsync(
+        string metaMessageId,
+        string status,
+        DateTime? statusTime,
+        string? errorMessage = null)
     {
-        await using var context = await _contextFactory.CreateDbContextAsync();
+        await using var context =
+            await _contextFactory.CreateDbContextAsync();
 
         var message = await context.WhatsAppMessages
-            .FirstOrDefaultAsync(x => x.MetaMessageId == metaMessageId);
+            .FirstOrDefaultAsync(x =>
+                x.MetaMessageId == metaMessageId);
 
         if (message is null)
             return;
 
-        message.Status = status;
-        message.UpdatedAt = DateTime.UtcNow;
+        var newStatus = status.Trim().ToLowerInvariant();
 
-        switch (status.ToLowerInvariant())
+        var currentStatus = message.Status?
+            .Trim()
+            .ToLowerInvariant();
+
+        // Do not downgrade an already read message.
+        if (currentStatus == "read")
+            return;
+
+        // Do not change a delivered message back to sent.
+        if (currentStatus == "delivered" &&
+            newStatus == "sent")
+        {
+            return;
+        }
+
+        // Do not replace a failed status with an earlier status.
+        if (currentStatus == "failed" &&
+            (newStatus == "sent" ||
+             newStatus == "delivered"))
+        {
+            return;
+        }
+
+        switch (newStatus)
         {
             case "sent":
-                message.SentAt = statusTime;
+                message.Status = "sent";
+                message.SentAt ??= statusTime;
                 break;
 
             case "delivered":
-                message.DeliveredAt = statusTime;
+                message.Status = "delivered";
+                message.SentAt ??= statusTime;
+                message.DeliveredAt ??= statusTime;
                 break;
 
             case "read":
-                message.ReadAt = statusTime;
+                message.Status = "read";
+                message.SentAt ??= statusTime;
+                message.DeliveredAt ??= statusTime;
+                message.ReadAt ??= statusTime;
                 break;
 
             case "failed":
-                message.FailedAt = statusTime;
+                message.Status = "failed";
+                message.FailedAt ??= statusTime;
+                message.ErrorMessage = errorMessage;
                 break;
+
+            default:
+                return;
         }
+
+        message.UpdatedAt = DateTime.UtcNow;
 
         await context.SaveChangesAsync();
     }
-    public async Task<WhatsAppMessage?> GetLatestByPhoneNumberAsync(string phoneNumber)
+
+    public async Task<WhatsAppMessage?> GetLatestByPhoneNumberAsync(
+        string phoneNumber)
     {
         await using var context =
             await _contextFactory.CreateDbContextAsync();
@@ -137,7 +132,10 @@ public class WhatsAppMessageRepository : IWhatsAppMessageRepository
             .FirstOrDefaultAsync();
     }
 
-    public async Task UpdateReplyAsync(long messageId,string replyMessage,DateTime replyReceivedAt)
+    public async Task UpdateReplyAsync(
+        long messageId,
+        string replyMessage,
+        DateTime replyReceivedAt)
     {
         await using var context =
             await _contextFactory.CreateDbContextAsync();
@@ -155,4 +153,3 @@ public class WhatsAppMessageRepository : IWhatsAppMessageRepository
         await context.SaveChangesAsync();
     }
 }
-

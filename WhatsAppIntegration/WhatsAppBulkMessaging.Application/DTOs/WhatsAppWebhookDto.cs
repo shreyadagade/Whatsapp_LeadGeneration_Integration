@@ -66,6 +66,30 @@ public class WhatsAppWebhookStatusDto
 
     [JsonPropertyName("recipient_id")]
     public string? RecipientId { get; set; }
+
+    [JsonPropertyName("errors")]
+    public List<WhatsAppWebhookErrorDto> Errors { get; set; } = [];
+}
+
+public class WhatsAppWebhookErrorDto
+{
+    [JsonPropertyName("code")]
+    public int? Code { get; set; }
+
+    [JsonPropertyName("title")]
+    public string? Title { get; set; }
+
+    [JsonPropertyName("message")]
+    public string? Message { get; set; }
+
+    [JsonPropertyName("error_data")]
+    public WhatsAppWebhookErrorDataDto? ErrorData { get; set; }
+}
+
+public class WhatsAppWebhookErrorDataDto
+{
+    [JsonPropertyName("details")]
+    public string? Details { get; set; }
 }
 
 public class WhatsAppWebhookMessageDto
@@ -84,6 +108,15 @@ public class WhatsAppWebhookMessageDto
 
     [JsonPropertyName("text")]
     public WhatsAppWebhookTextDto? Text { get; set; }
+
+    [JsonPropertyName("context")]
+    public WhatsAppWebhookContextDto? Context { get; set; }
+}
+
+public class WhatsAppWebhookContextDto
+{
+    [JsonPropertyName("id")]
+    public string? Id { get; set; }
 }
 
 public class WhatsAppWebhookTextDto
