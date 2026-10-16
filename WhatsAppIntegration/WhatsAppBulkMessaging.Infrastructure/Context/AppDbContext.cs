@@ -13,6 +13,7 @@ public class AppDbContext : DbContext
 
     public DbSet<WhatsAppTemplate> WhatsAppTemplates { get; set; }
     public DbSet<WhatsAppMessage> WhatsAppMessages { get; set; }
+    public DbSet<WhatsAppReply> WhatsAppReplies=> Set<WhatsAppReply>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {

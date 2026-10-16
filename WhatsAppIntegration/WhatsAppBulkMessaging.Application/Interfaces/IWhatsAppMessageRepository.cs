@@ -1,4 +1,5 @@
 ﻿
+using WhatsAppBulkMessaging.Application.DTOs;
 using WhatsAppBulkMessaging.Domain.Entities;
 
 namespace WhatsAppBulkMessaging.Application.Interfaces;
@@ -22,4 +23,6 @@ public interface IWhatsAppMessageRepository
 
     // Get messages for a specific customer
     Task<List<WhatsAppMessage>> GetByPhoneNumberAsync(string phoneNumber);
+
+    Task AddIncomingReplyAsync(WhatsAppReplyDto reply);
 }

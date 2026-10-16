@@ -313,44 +313,138 @@ public class WhatsAppController : ControllerBase
         return Ok(messages);
     }
 
-//    [HttpPost("upload-media")]
-//    public async Task<IActionResult> UploadMedia(IFormFile file)
-//    {
-//        if (file == null || file.Length == 0)
-//        {
-//            return BadRequest(new
-//            {
-//                message = "Image file is required."
-//            });
-//        }
+    [HttpPost("reply")]
+    [Consumes("multipart/form-data")]
+    public async Task<IActionResult> SendReply([FromForm] SendReplyRequest request)
+    {
+        if (string.IsNullOrWhiteSpace(request.PhoneNumber))
+        {
+            return BadRequest(new
+            {
+                message = "Phone number is required."
+            });
+        }
 
-//        var allowedContentTypes = new[]
-//        {
-//        "image/jpeg",
-//        "image/png"
-//    };
+        if (string.IsNullOrWhiteSpace(request.MessageType))
+        {
+            return BadRequest(new
+            {
+                message = "Message type is required."
+            });
+        }
 
-//        if (!allowedContentTypes.Contains(
-//            file.ContentType,
-//            StringComparer.OrdinalIgnoreCase))
-//        {
-//            return BadRequest(new
-//            {
-//                message = "Only JPG and PNG images are supported."
-//            });
-//        }
+        var messageType = request.MessageType.Trim().ToLowerInvariant();
 
-//        await using var stream = file.OpenReadStream();
+        if (messageType is not ("text" or "image" or "video" or "audio" or "document"))
+        {
+            return BadRequest(new
+            {
+                message = "Supported types: text, image, video, audio, document."
+            });
+        }
 
-//        var mediaId = await _metaService.UploadMediaAsync(
-//            stream,
-//            file.FileName,
-//            file.ContentType);
+        if (messageType == "text" &&
+            string.IsNullOrWhiteSpace(request.Text))
+        {
+            return BadRequest(new
+            {
+                message = "Text is required for text messages."
+            });
+        }
 
-//        return Ok(new
-//        {
-//            message = "Media uploaded successfully.",
-//            mediaId
-//        });
-//    }
+        if (messageType != "text" &&
+            (request.File == null || request.File.Length == 0))
+        {
+            return BadRequest(new
+            {
+                message = "A file is required for media messages."
+            });
+        }
+
+        await using var fileStream = request.File?.OpenReadStream();
+
+        var replyRequest = new SendReplyRequestDto
+        {
+            PhoneNumber = request.PhoneNumber,
+            MessageType = messageType,
+            Text = request.Text,
+            Caption = request.Caption,
+            FileStream = fileStream,
+            FileName = request.File?.FileName,
+            ContentType = request.File?.ContentType
+        };
+
+        try
+        {
+            var result = await _metaService.SendReplyAsync(replyRequest);
+
+            return Ok(new
+            {
+                message = result.Message,
+                phoneNumber = result.PhoneNumber,
+                messageType = result.MessageType,
+                textMessageId = result.TextMessageId,
+                mediaMessageId = result.MediaMessageId
+            });
+        }
+        catch (HttpRequestException ex)
+        {
+            return StatusCode(
+                StatusCodes.Status502BadGateway,
+                new
+                {
+                    message = "WhatsApp reply could not be sent.",
+                    error = ex.Message
+                });
+        }
+        catch (ArgumentException ex)
+        {
+            return BadRequest(new
+            {
+                message = ex.Message
+            });
+        }
+    }
+
+
+    //    [HttpPost("upload-media")]
+    //    public async Task<IActionResult> UploadMedia(IFormFile file)
+    //    {
+    //        if (file == null || file.Length == 0)
+    //        {
+    //            return BadRequest(new
+    //            {
+    //                message = "Image file is required."
+    //            });
+    //        }
+
+    //        var allowedContentTypes = new[]
+    //        {
+    //        "image/jpeg",
+    //        "image/png"
+    //    };
+
+    //        if (!allowedContentTypes.Contains(
+    //            file.ContentType,
+    //            StringComparer.OrdinalIgnoreCase))
+    //        {
+    //            return BadRequest(new
+    //            {
+    //                message = "Only JPG and PNG images are supported."
+    //            });
+    //        }
+
+    //        await using var stream = file.OpenReadStream();
+
+    //        var mediaId = await _metaService.UploadMediaAsync(
+    //            stream,
+    //            file.FileName,
+    //            file.ContentType);
+
+    //        return Ok(new
+    //        {
+    //            message = "Media uploaded successfully.",
+    //            mediaId
+    //        });
+    //    }
 }

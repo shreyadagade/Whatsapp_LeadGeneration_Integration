@@ -1,4 +1,5 @@
 ﻿using Microsoft.EntityFrameworkCore;
+using WhatsAppBulkMessaging.Application.DTOs;
 using WhatsAppBulkMessaging.Application.Interfaces;
 using WhatsAppBulkMessaging.Domain.Entities;
 using WhatsAppBulkMessaging.Infrastructure.Data;
@@ -174,5 +175,34 @@ public class WhatsAppMessageRepository : IWhatsAppMessageRepository
             .Where(x => x.PhoneNumber.EndsWith(phoneNumber))
             .OrderByDescending(x => x.CreatedAt)
             .ToListAsync();
+    }
+
+    public async Task AddIncomingReplyAsync(WhatsAppReplyDto reply)
+    {
+        if (string.IsNullOrWhiteSpace(reply.MetaMessageId))
+            return;
+
+        await using var context =
+            await _contextFactory.CreateDbContextAsync();
+
+        // Prevent duplicate replies
+        var alreadyExists = await context.WhatsAppReplies
+            .AnyAsync(x => x.MetaMessageId == reply.MetaMessageId);
+
+        if (alreadyExists)
+            return;
+
+        var entity = new WhatsAppReply
+        {
+            WhatsAppMessageId = reply.WhatsAppMessageId,
+            PhoneNumber = reply.PhoneNumber,
+            ReplyMessage = reply.ReplyMessage,
+            MetaMessageId = reply.MetaMessageId,
+            ReplyReceivedAt = reply.ReplyReceivedAt
+        };
+
+        context.WhatsAppReplies.Add(entity);
+
+        await context.SaveChangesAsync();
     }
 }

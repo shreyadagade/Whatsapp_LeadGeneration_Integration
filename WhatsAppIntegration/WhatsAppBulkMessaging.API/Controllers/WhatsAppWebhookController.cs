@@ -1,4 +1,5 @@
-﻿using Microsoft.AspNetCore.Mvc;
+﻿
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Options;
 using System.Globalization;
 using WhatsAppBulkMessaging.Application.DTOs;
@@ -44,9 +45,10 @@ public class WhatsAppWebhookController : ControllerBase
 
     // 2. Receive Meta webhook notifications
     [HttpPost]
-    public async Task<IActionResult> Receive(
-        [FromBody] WhatsAppWebhookDto payload)
+    public async Task<IActionResult> Receive(WhatsAppWebhookDto payload)
     {
+        Console.WriteLine("WHATSAPP WEBHOOK POST RECEIVED");
+
         if (payload.Entry is null || payload.Entry.Count == 0)
             return Ok();
 
@@ -55,7 +57,6 @@ public class WhatsAppWebhookController : ControllerBase
             foreach (var change in entry.Changes)
             {
                 // A. Automatically synchronize WhatsApp templates
-                // when Meta sends a template status update event.
                 if (string.Equals(
                     change.Field,
                     "message_template_status_update",
@@ -70,8 +71,7 @@ public class WhatsAppWebhookController : ControllerBase
                 if (value is null)
                     continue;
 
-                // B. Update outgoing message statuses:
-                // sent, delivered, read, failed
+                // B. Update outgoing message statuses
                 foreach (var statusUpdate in value.Statuses)
                 {
                     if (string.IsNullOrWhiteSpace(statusUpdate.Id) ||
@@ -108,10 +108,17 @@ public class WhatsAppWebhookController : ControllerBase
                         errorMessage);
                 }
 
-                // C. Save incoming customer replies
+                // C. Save every incoming reply separately
                 foreach (var incoming in value.Messages)
                 {
+                    Console.WriteLine(
+                        $"INCOMING REPLY: From={incoming.From}, Id={incoming.Id}, Text={incoming.Text?.Body}");
+
                     if (string.IsNullOrWhiteSpace(incoming.From))
+                        continue;
+
+                    // Required to prevent duplicate webhook entries
+                    if (string.IsNullOrWhiteSpace(incoming.Id))
                         continue;
 
                     string replyText;
@@ -129,8 +136,7 @@ public class WhatsAppWebhookController : ControllerBase
                     WhatsAppBulkMessaging.Domain.Entities.WhatsAppMessage?
                         outgoingMessage = null;
 
-                    // First, find the exact outgoing message
-                    // to which the customer replied.
+                    // Find the exact outgoing message, if context is available
                     if (!string.IsNullOrWhiteSpace(incoming.Context?.Id))
                     {
                         outgoingMessage =
@@ -138,17 +144,13 @@ public class WhatsAppWebhookController : ControllerBase
                                 incoming.Context.Id);
                     }
 
-                    // If context.id is unavailable, use the latest
-                    // outgoing message for this phone number.
+                    // Otherwise, use the latest outgoing message for this number
                     if (outgoingMessage is null)
                     {
                         outgoingMessage =
                             await _messageRepository.GetLatestByPhoneNumberAsync(
                                 incoming.From);
                     }
-
-                    if (outgoingMessage is null)
-                        continue;
 
                     DateTime replyReceivedAt = DateTime.UtcNow;
 
@@ -163,10 +165,19 @@ public class WhatsAppWebhookController : ControllerBase
                             .UtcDateTime;
                     }
 
-                    await _messageRepository.UpdateReplyAsync(
-                        outgoingMessage.Id,
-                        replyText,
-                        replyReceivedAt);
+                    // Create DTO for the incoming reply
+                    var replyDto = new WhatsAppReplyDto
+                    {
+                        WhatsAppMessageId = outgoingMessage?.Id,
+                        PhoneNumber = incoming.From,
+                        ReplyMessage = replyText,
+                        MetaMessageId = incoming.Id,
+                        ReplyReceivedAt = replyReceivedAt
+                    };
+
+                    // Insert into WhatsAppReplies instead of overwriting
+                    // WhatsAppMessages.ReplyMessage
+                    await _messageRepository.AddIncomingReplyAsync(replyDto);
                 }
             }
         }

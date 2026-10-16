@@ -1,4 +1,6 @@
-﻿namespace WhatsAppBulkMessaging.Application.DTOs;
+﻿using System.Text.Json.Serialization;
+
+namespace WhatsAppBulkMessaging.Application.DTOs;
 
 public class MetaTemplateResponseDto
 {
@@ -27,4 +29,7 @@ public class MetaTemplateComponentDto
 public class MetaTemplateExampleDto
 {
     public List<List<string>> Body_Text { get; set; } = [];
+
+    [JsonPropertyName("header_handle")]
+    public List<string> Header_Handle { get; set; } = [];
 }

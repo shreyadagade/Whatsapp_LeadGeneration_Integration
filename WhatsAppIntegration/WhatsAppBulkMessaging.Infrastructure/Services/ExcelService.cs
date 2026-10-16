@@ -1,5 +1,4 @@
-﻿
-using NPOI.SS.UserModel;
+﻿ using NPOI.SS.UserModel;
 using WhatsAppBulkMessaging.Application.DTOs;
 using WhatsAppBulkMessaging.Application.Interfaces;
 
@@ -31,8 +30,7 @@ public class ExcelService : IExcelService
         };
     }
 
-    private Task<List<RecipientDto>> ReadExcelFileAsync(
-        Stream fileStream)
+    private Task<List<RecipientDto>> ReadExcelFileAsync(Stream fileStream)
     {
         var recipients = new List<RecipientDto>();
 

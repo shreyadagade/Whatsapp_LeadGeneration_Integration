@@ -1,7 +1,21 @@
+
+using Microsoft.AspNetCore.Http.Features;
 using WhatsAppBulkMessaging.API.Configuration;
 using WhatsAppBulkMessaging.API.Middleware;
 
 var builder = WebApplication.CreateBuilder(args);
+
+// Allow larger multipart form uploads (100 MB)
+builder.Services.Configure<FormOptions>(options =>
+{
+    options.MultipartBodyLengthLimit = 104_857_600;
+});
+
+// Allow larger HTTP requests (100 MB)
+builder.WebHost.ConfigureKestrel(options =>
+{
+    options.Limits.MaxRequestBodySize = 104_857_600;
+});
 
 // Services
 builder.Services.AddControllers();
