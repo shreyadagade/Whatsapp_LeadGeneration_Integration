@@ -92,6 +92,37 @@ namespace WhatsAppBulkMessaging.Infrastructure.Migrations
                     b.ToTable("WhatsAppMessages", "erpsystem");
                 });
 
+            modelBuilder.Entity("WhatsAppBulkMessaging.Domain.Entities.WhatsAppReply", b =>
+                {
+                    b.Property<long>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<long>("Id"));
+
+                    b.Property<string>("MetaMessageId")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("PhoneNumber")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("ReplyMessage")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<DateTime>("ReplyReceivedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<long?>("WhatsAppMessageId")
+                        .HasColumnType("bigint");
+
+                    b.HasKey("Id");
+
+                    b.ToTable("WhatsAppReplies", "erpsystem");
+                });
+
             modelBuilder.Entity("WhatsAppBulkMessaging.Domain.Entities.WhatsAppTemplate", b =>
                 {
                     b.Property<int>("Id")
@@ -103,8 +134,14 @@ namespace WhatsAppBulkMessaging.Infrastructure.Migrations
                     b.Property<int>("BodyParameterCount")
                         .HasColumnType("int");
 
+                    b.Property<string>("BodyText")
+                        .HasColumnType("nvarchar(max)");
+
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("datetime2");
+
+                    b.Property<string>("HeaderFormat")
+                        .HasColumnType("nvarchar(max)");
 
                     b.Property<bool>("IsActive")
                         .ValueGeneratedOnAdd()

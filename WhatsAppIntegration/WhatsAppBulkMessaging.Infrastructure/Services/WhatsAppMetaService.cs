@@ -26,7 +26,6 @@ public class WhatsAppMetaService : IWhatsAppMetaService, IWhatsAppService
         _httpClient = httpClient;
         _options = options.Value;
     }
-
     public async Task<MetaTemplateResponseDto> GetTemplatesAsync()
     {
         var url =
@@ -42,16 +41,21 @@ public class WhatsAppMetaService : IWhatsAppMetaService, IWhatsAppService
 
         var content = await response.Content.ReadAsStringAsync();
 
-        response.EnsureSuccessStatusCode();
+        if (!response.IsSuccessStatusCode)
+        {
+            throw new HttpRequestException(
+                $"Meta template API error ({(int)response.StatusCode}): {content}");
+        }
 
-        return JsonSerializer.Deserialize<MetaTemplateResponseDto>(
+        var result = JsonSerializer.Deserialize<MetaTemplateResponseDto>(
             content,
             new JsonSerializerOptions
             {
                 PropertyNameCaseInsensitive = true
-            }) ?? new MetaTemplateResponseDto();
-    }
+            });
 
+        return result ?? new MetaTemplateResponseDto();
+    }
     public async Task<string> UploadMediaAsync(
         Stream fileStream,
         string fileName,

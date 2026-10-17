@@ -1,4 +1,5 @@
-﻿using Microsoft.AspNetCore.Mvc;
+﻿
+using Microsoft.AspNetCore.Mvc;
 using WhatsAppBulkMessaging.Application.Interfaces;
 
 namespace WhatsAppBulkMessaging.API.Controllers;
@@ -8,14 +9,11 @@ namespace WhatsAppBulkMessaging.API.Controllers;
 public class WhatsAppTemplatesController : ControllerBase
 {
     private readonly IWhatsAppTemplateService _templateService;
-    private readonly IWhatsAppMetaService _metaService;
 
     public WhatsAppTemplatesController(
-            IWhatsAppTemplateService templateService,
-            IWhatsAppMetaService metaService)
+        IWhatsAppTemplateService templateService)
     {
         _templateService = templateService;
-        _metaService = metaService;
     }
 
     [HttpGet]
@@ -26,14 +24,14 @@ public class WhatsAppTemplatesController : ControllerBase
         return Ok(templates);
     }
 
-    //[HttpPost("sync")]
-    //public async Task<IActionResult> SyncTemplates()
-    //{
-    //    await _templateService.SyncTemplatesAsync();
+    [HttpPost("sync")]
+    public async Task<IActionResult> SyncTemplates()
+    {
+        await _templateService.SyncTemplatesAsync();
 
-    //    return Ok(new
-    //    {
-    //        message = "WhatsApp templates synchronized successfully."
-    //    });
-    //}
+        return Ok(new
+        {
+            message = "WhatsApp templates synchronized successfully."
+        });
+    }
 }

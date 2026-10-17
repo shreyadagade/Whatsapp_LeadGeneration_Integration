@@ -11,6 +11,10 @@ public class WhatsAppTemplate
 
     public int BodyParameterCount { get; set; }
 
+    public string? BodyText { get; set; }
+
+    public string? HeaderFormat { get; set; }
+
     public bool IsActive { get; set; } = true;
 
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
