@@ -28,6 +28,8 @@ public class WhatsAppMetaService : IWhatsAppMetaService, IWhatsAppService
     }
     public async Task<MetaTemplateResponseDto> GetTemplatesAsync()
     {
+        Console.WriteLine(">>> GetTemplatesAsync CALLED <<<");
+
         var url =
             $"{_options.BaseUrl.TrimEnd('/')}/{_options.ApiVersion}/" +
             $"{_options.BusinessAccountId}/message_templates";
@@ -40,6 +42,8 @@ public class WhatsAppMetaService : IWhatsAppMetaService, IWhatsAppService
         using var response = await _httpClient.SendAsync(request);
 
         var content = await response.Content.ReadAsStringAsync();
+
+        System.Diagnostics.Debug.WriteLine("META TEMPLATE RESPONSE: " + content);
 
         if (!response.IsSuccessStatusCode)
         {

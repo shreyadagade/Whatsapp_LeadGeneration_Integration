@@ -180,29 +180,47 @@ public class WhatsAppMessageRepository : IWhatsAppMessageRepository
     public async Task AddIncomingReplyAsync(WhatsAppReplyDto reply)
     {
         if (string.IsNullOrWhiteSpace(reply.MetaMessageId))
-            return;
-
-        await using var context =
-            await _contextFactory.CreateDbContextAsync();
-
-        // Prevent duplicate replies
-        var alreadyExists = await context.WhatsAppReplies
-            .AnyAsync(x => x.MetaMessageId == reply.MetaMessageId);
-
-        if (alreadyExists)
-            return;
-
-        var entity = new WhatsAppReply
         {
-            WhatsAppMessageId = reply.WhatsAppMessageId,
-            PhoneNumber = reply.PhoneNumber,
-            ReplyMessage = reply.ReplyMessage,
-            MetaMessageId = reply.MetaMessageId,
-            ReplyReceivedAt = reply.ReplyReceivedAt
-        };
+            Console.WriteLine("Reply not saved: MetaMessageId is empty.");
+            return;
+        }
 
-        context.WhatsAppReplies.Add(entity);
+        try
+        {
+            await using var context =
+                await _contextFactory.CreateDbContextAsync();
 
-        await context.SaveChangesAsync();
+            Console.WriteLine(
+                $"Saving reply. MetaMessageId: {reply.MetaMessageId}");
+
+            var alreadyExists = await context.WhatsAppReplies
+                .AnyAsync(x => x.MetaMessageId == reply.MetaMessageId);
+
+            if (alreadyExists)
+            {
+                Console.WriteLine("Reply already exists. Skipping duplicate.");
+                return;
+            }
+
+            var entity = new WhatsAppReply
+            {
+                WhatsAppMessageId = reply.WhatsAppMessageId,
+                PhoneNumber = reply.PhoneNumber,
+                ReplyMessage = reply.ReplyMessage,
+                MetaMessageId = reply.MetaMessageId,
+                ReplyReceivedAt = reply.ReplyReceivedAt
+            };
+
+            await context.WhatsAppReplies.AddAsync(entity);
+
+            var rows = await context.SaveChangesAsync();
+
+            Console.WriteLine($"Reply saved successfully. Rows affected: {rows}");
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"ERROR SAVING WHATSAPP REPLY: {ex}");
+            throw;
+        }
     }
 }

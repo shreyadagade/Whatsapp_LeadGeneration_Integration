@@ -15,6 +15,8 @@ public class WhatsAppTemplate
 
     public string? HeaderFormat { get; set; }
 
+    public string? HeaderImageUrl { get; set; }
+
     public bool IsActive { get; set; } = true;
 
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;

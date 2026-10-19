@@ -143,6 +143,9 @@ namespace WhatsAppBulkMessaging.Infrastructure.Migrations
                     b.Property<string>("HeaderFormat")
                         .HasColumnType("nvarchar(max)");
 
+                    b.Property<string>("HeaderImageUrl")
+                        .HasColumnType("nvarchar(max)");
+
                     b.Property<bool>("IsActive")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("bit")
