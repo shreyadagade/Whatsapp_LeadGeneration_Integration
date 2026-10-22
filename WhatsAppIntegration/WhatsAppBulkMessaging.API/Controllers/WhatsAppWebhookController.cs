@@ -4,6 +4,8 @@ using Microsoft.Extensions.Options;
 using System.Globalization;
 using WhatsAppBulkMessaging.Application.DTOs;
 using WhatsAppBulkMessaging.Application.Interfaces;
+using WhatsAppBulkMessaging.Domain.Entities;
+using WhatsAppBulkMessaging.Infrastructure.Repositories;
 
 namespace WhatsAppBulkMessaging.API.Controllers;
 
@@ -14,18 +16,21 @@ public class WhatsAppWebhookController : ControllerBase
     private readonly WhatsAppOptions _options;
     private readonly IWhatsAppMessageRepository _messageRepository;
     private readonly IWhatsAppTemplateService _templateService;
+    private readonly WhatsAppChatMessageRepository _chatRepository;
 
     public WhatsAppWebhookController(
         IOptions<WhatsAppOptions> options,
         IWhatsAppMessageRepository messageRepository,
-        IWhatsAppTemplateService templateService)
+        IWhatsAppTemplateService templateService,
+        WhatsAppChatMessageRepository chatRepository)
     {
         _options = options.Value;
         _messageRepository = messageRepository;
         _templateService = templateService;
+        _chatRepository = chatRepository;
     }
 
-    // 1. Meta webhook verification
+ 
     [HttpGet]
     public IActionResult Verify(
         [FromQuery(Name = "hub.mode")] string? mode,
@@ -43,12 +48,10 @@ public class WhatsAppWebhookController : ControllerBase
         return Unauthorized();
     }
 
-    // 2. Receive Meta webhook notifications
     [HttpPost]
     public async Task<IActionResult> Receive(WhatsAppWebhookDto payload)
     {
-        Console.WriteLine("WHATSAPP WEBHOOK POST RECEIVED");
-
+     
         if (payload.Entry is null || payload.Entry.Count == 0)
             return Ok();
 
@@ -57,9 +60,7 @@ public class WhatsAppWebhookController : ControllerBase
             foreach (var change in entry.Changes)
             {
                 // A. Automatically synchronize WhatsApp templates
-                if (string.Equals(
-                    change.Field,
-                    "message_template_status_update",
+                if (string.Equals(change.Field,"message_template_status_update",
                     StringComparison.OrdinalIgnoreCase))
                 {
                     await _templateService.SyncTemplatesAsync();
@@ -74,45 +75,34 @@ public class WhatsAppWebhookController : ControllerBase
                 // B. Update outgoing message statuses
                 foreach (var statusUpdate in value.Statuses)
                 {
-                    if (string.IsNullOrWhiteSpace(statusUpdate.Id) ||
-                        string.IsNullOrWhiteSpace(statusUpdate.Status))
+                    if (string.IsNullOrWhiteSpace(statusUpdate.Id) || string.IsNullOrWhiteSpace(statusUpdate.Status))
                     {
                         continue;
                     }
 
                     DateTime? statusTime = null;
 
-                    if (long.TryParse(
-                        statusUpdate.Timestamp,
-                        NumberStyles.Integer,
+                    if (long.TryParse(statusUpdate.Timestamp,NumberStyles.Integer,
                         CultureInfo.InvariantCulture,
                         out var unixTimestamp))
                     {
-                        statusTime = DateTimeOffset
-                            .FromUnixTimeSeconds(unixTimestamp)
-                            .UtcDateTime;
+                        statusTime = DateTimeOffset.FromUnixTimeSeconds(unixTimestamp).UtcDateTime;
                     }
 
                     var error = statusUpdate.Errors.FirstOrDefault();
 
-                    var errorMessage = error is null
-                        ? null
-                        : $"Code: {error.Code}; " +
+                    var errorMessage = error is null ? null: $"Code: {error.Code}; " +
                           $"{error.Title}; {error.Message}; " +
                           $"{error.ErrorData?.Details}";
 
-                    await _messageRepository.UpdateStatusAsync(
-                        statusUpdate.Id,
-                        statusUpdate.Status,
-                        statusTime,
-                        errorMessage);
+                    await _messageRepository.UpdateStatusAsync(statusUpdate.Id,
+                        statusUpdate.Status,statusTime,errorMessage);
                 }
 
-                // C. Save every incoming reply separately
+                // C. Save incoming messages in unified chat history
                 foreach (var incoming in value.Messages)
                 {
-                    Console.WriteLine(
-                        $"INCOMING REPLY: From={incoming.From}, Id={incoming.Id}, Text={incoming.Text?.Body}");
+                    //Console.WriteLine($"INCOMING REPLY: From={incoming.From}, Id={incoming.Id}, Text={incoming.Text?.Body}");
 
                     if (string.IsNullOrWhiteSpace(incoming.From))
                         continue;
@@ -129,55 +119,34 @@ public class WhatsAppWebhookController : ControllerBase
                     }
                     else
                     {
-                        replyText =
-                            $"[{incoming.Type ?? "unknown"} message received]";
-                    }
-
-                    WhatsAppBulkMessaging.Domain.Entities.WhatsAppMessage?
-                        outgoingMessage = null;
-
-                    // Find the exact outgoing message, if context is available
-                    if (!string.IsNullOrWhiteSpace(incoming.Context?.Id))
-                    {
-                        outgoingMessage =
-                            await _messageRepository.GetByMetaMessageIdAsync(
-                                incoming.Context.Id);
-                    }
-
-                    // Otherwise, use the latest outgoing message for this number
-                    if (outgoingMessage is null)
-                    {
-                        outgoingMessage =
-                            await _messageRepository.GetLatestByPhoneNumberAsync(
-                                incoming.From);
+                        replyText = $"[{incoming.Type ?? "unknown"} message received]";
                     }
 
                     DateTime replyReceivedAt = DateTime.UtcNow;
 
-                    if (long.TryParse(
-                        incoming.Timestamp,
-                        NumberStyles.Integer,
-                        CultureInfo.InvariantCulture,
+                    if (long.TryParse(incoming.Timestamp,NumberStyles.Integer,CultureInfo.InvariantCulture,
                         out var replyTimestamp))
                     {
-                        replyReceivedAt = DateTimeOffset
-                            .FromUnixTimeSeconds(replyTimestamp)
+                        replyReceivedAt = DateTimeOffset.FromUnixTimeSeconds(replyTimestamp)
                             .UtcDateTime;
                     }
 
-                    // Create DTO for the incoming reply
-                    var replyDto = new WhatsAppReplyDto
+                    // Save incoming message in unified chat history
+                    if (!await _chatRepository.ExistsAsync(incoming.Id))
                     {
-                        WhatsAppMessageId = outgoingMessage?.Id,
-                        PhoneNumber = incoming.From,
-                        ReplyMessage = replyText,
-                        MetaMessageId = incoming.Id,
-                        ReplyReceivedAt = replyReceivedAt
-                    };
+                        var chatMessage = new WhatsAppChatMessage
+                        {
+                            PhoneNumber = incoming.From,
+                            Direction = "Incoming",
+                            MessageType = incoming.Type ?? "text",
+                            MessageText = replyText,
+                            MetaMessageId = incoming.Id,
+                            Status = "Received",
+                            CreatedAt = replyReceivedAt
+                        };
 
-                    // Insert into WhatsAppReplies instead of overwriting
-                    // WhatsAppMessages.ReplyMessage
-                    await _messageRepository.AddIncomingReplyAsync(replyDto);
+                        await _chatRepository.AddAsync(chatMessage);
+                    }
                 }
             }
         }

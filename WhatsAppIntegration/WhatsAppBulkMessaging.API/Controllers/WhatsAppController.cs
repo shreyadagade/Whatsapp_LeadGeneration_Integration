@@ -4,6 +4,7 @@ using WhatsAppBulkMessaging.API.Models;
 using WhatsAppBulkMessaging.Application.DTOs;
 using WhatsAppBulkMessaging.Application.Interfaces;
 using WhatsAppBulkMessaging.Domain.Entities;
+using WhatsAppBulkMessaging.Infrastructure.Repositories;
 
 namespace WhatsAppBulkMessaging.API.Controllers;
 
@@ -18,6 +19,7 @@ public class WhatsAppController : ControllerBase
     private readonly IRecipientValidationService _recipientValidationService;
     private readonly IWhatsAppMetaService _metaService;
     private readonly IWhatsAppMessageHistoryService _messageHistoryService;
+    private readonly WhatsAppChatMessageRepository _chatRepository;
     public WhatsAppController(
         IWhatsAppService messageService,
         IWhatsAppMessageRepository messageRepository,
@@ -25,7 +27,8 @@ public class WhatsAppController : ControllerBase
         IExcelService excelService,
         IRecipientValidationService recipientValidationService,
         IWhatsAppMetaService metaService,
-        IWhatsAppMessageHistoryService messageHistoryService)
+        IWhatsAppMessageHistoryService messageHistoryService,
+        WhatsAppChatMessageRepository chatRepository)
     {
         _messageService = messageService;
         _messageRepository = messageRepository;
@@ -34,6 +37,7 @@ public class WhatsAppController : ControllerBase
         _recipientValidationService = recipientValidationService;
         _metaService = metaService;
         _messageHistoryService = messageHistoryService;
+        _chatRepository = chatRepository;
     }
 
  
@@ -138,6 +142,7 @@ public class WhatsAppController : ControllerBase
         var templateName = template.TemplateName;
         var languageCode = template.LanguageCode;
         var bodyParameterCount = template.BodyParameterCount;
+        var templateBodyText = template.BodyText;
 
         var tasks = validationResults
             .Where(x => x.IsValid)
@@ -167,9 +172,7 @@ public class WhatsAppController : ControllerBase
 
                     try
                     {
-                        var messageId =
-                            await _messageService.SendTemplateMessageAsync(
-                                sendRequest);
+                        var messageId = await _messageService.SendTemplateMessageAsync(sendRequest);
 
                         var message = new WhatsAppMessage
                         {
@@ -184,6 +187,22 @@ public class WhatsAppController : ControllerBase
 
                         await _messageRepository.AddAsync(message);
 
+
+                        var chatMessage = new WhatsAppChatMessage
+                        {
+                            PhoneNumber = recipient.NormalizedPhoneNumber!,
+                            Direction = "Outgoing",
+                            MessageType = headerMediaId != null ? "ImageTemplate" : "Template",
+                            MessageText = template.BodyText ?? $"Template: {templateName}",
+                            MediaId = headerMediaId,
+                            MetaMessageId = messageId,
+                            Status = "Sent",
+                            CreatedAt = message.CreatedAt,
+                            SentAt = message.SentAt
+                        };
+
+                        await _chatRepository.AddAsync(chatMessage);
+    
                         sentMessages.Add(new
                         {
                             rowNumber = recipient.RowNumber,
@@ -343,8 +362,7 @@ public class WhatsAppController : ControllerBase
             });
         }
 
-        if (messageType == "text" &&
-            string.IsNullOrWhiteSpace(request.Text))
+        if (messageType == "text" && string.IsNullOrWhiteSpace(request.Text))
         {
             return BadRequest(new
             {
@@ -352,8 +370,7 @@ public class WhatsAppController : ControllerBase
             });
         }
 
-        if (messageType != "text" &&
-            (request.File == null || request.File.Length == 0))
+        if (messageType != "text" && (request.File == null || request.File.Length == 0))
         {
             return BadRequest(new
             {
@@ -377,6 +394,26 @@ public class WhatsAppController : ControllerBase
         try
         {
             var result = await _metaService.SendReplyAsync(replyRequest);
+
+            var sentAt = DateTime.UtcNow;
+
+            var metaMessageId = result.TextMessageId ?? result.MediaMessageId;
+
+            var chatMessage = new WhatsAppChatMessage
+            {
+                PhoneNumber = request.PhoneNumber,
+                Direction = "Outgoing",
+                MessageType = messageType,
+                MessageText = messageType == "text"
+                    ? request.Text
+                    : request.Caption,
+                MetaMessageId = metaMessageId,
+                Status = "Sent",
+                CreatedAt = sentAt,
+                SentAt = sentAt
+            };
+
+            await _chatRepository.AddAsync(chatMessage);
 
             return Ok(new
             {
@@ -406,45 +443,18 @@ public class WhatsAppController : ControllerBase
         }
     }
 
+    [HttpGet("chat/{phoneNumber}")]
+    public async Task<IActionResult> GetChatHistoryByPhoneNumber(string phoneNumber)
+    {
+        if (string.IsNullOrWhiteSpace(phoneNumber))
+            return BadRequest(new { message = "Phone number is required." });
 
-    //    [HttpPost("upload-media")]
-    //    public async Task<IActionResult> UploadMedia(IFormFile file)
-    //    {
-    //        if (file == null || file.Length == 0)
-    //        {
-    //            return BadRequest(new
-    //            {
-    //                message = "Image file is required."
-    //            });
-    //        }
+        var messages =
+            await _messageHistoryService.GetChatHistoryByPhoneNumberAsync(phoneNumber);
 
-    //        var allowedContentTypes = new[]
-    //        {
-    //        "image/jpeg",
-    //        "image/png"
-    //    };
+        return Ok(messages);
+    }
 
-    //        if (!allowedContentTypes.Contains(
-    //            file.ContentType,
-    //            StringComparer.OrdinalIgnoreCase))
-    //        {
-    //            return BadRequest(new
-    //            {
-    //                message = "Only JPG and PNG images are supported."
-    //            });
-    //        }
 
-    //        await using var stream = file.OpenReadStream();
-
-    //        var mediaId = await _metaService.UploadMediaAsync(
-    //            stream,
-    //            file.FileName,
-    //            file.ContentType);
-
-    //        return Ok(new
-    //        {
-    //            message = "Media uploaded successfully.",
-    //            mediaId
-    //        });
-    //    }
+    
 }

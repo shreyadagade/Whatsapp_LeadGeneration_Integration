@@ -1,5 +1,4 @@
 ﻿
-
 using Microsoft.EntityFrameworkCore;
 using WhatsAppBulkMessaging.Application.DTOs;
 using WhatsAppBulkMessaging.Application.Interfaces;
@@ -33,8 +32,8 @@ public static class DependencyInjection
         services.AddScoped<IExcelService, ExcelService>();
         services.AddScoped<IPhoneNumberService, PhoneNumberService>();
         services.AddScoped<IRecipientValidationService,RecipientValidationService>();
-
         services.AddScoped<IWhatsAppMessageHistoryService,WhatsAppMessageHistoryService>();
+        services.AddScoped<WhatsAppChatMessageRepository>();
 
         return services;
     }

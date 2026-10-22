@@ -23,6 +23,80 @@ namespace WhatsAppBulkMessaging.Infrastructure.Migrations
 
             SqlServerModelBuilderExtensions.UseIdentityColumns(modelBuilder);
 
+            modelBuilder.Entity("WhatsAppBulkMessaging.Domain.Entities.WhatsAppChatMessage", b =>
+                {
+                    b.Property<long>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<long>("Id"));
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateTime?>("DeliveredAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("Direction")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("nvarchar(20)");
+
+                    b.Property<string>("ErrorMessage")
+                        .HasMaxLength(1000)
+                        .HasColumnType("nvarchar(1000)");
+
+                    b.Property<string>("FileName")
+                        .HasMaxLength(255)
+                        .HasColumnType("nvarchar(255)");
+
+                    b.Property<string>("MediaId")
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.Property<string>("MessageText")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("MessageType")
+                        .IsRequired()
+                        .HasMaxLength(30)
+                        .HasColumnType("nvarchar(30)");
+
+                    b.Property<string>("MetaMessageId")
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.Property<string>("MimeType")
+                        .HasMaxLength(150)
+                        .HasColumnType("nvarchar(150)");
+
+                    b.Property<string>("PhoneNumber")
+                        .IsRequired()
+                        .HasMaxLength(30)
+                        .HasColumnType("nvarchar(30)");
+
+                    b.Property<DateTime?>("ReadAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateTime?>("SentAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(30)
+                        .HasColumnType("nvarchar(30)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("MetaMessageId")
+                        .IsUnique()
+                        .HasFilter("[MetaMessageId] IS NOT NULL");
+
+                    b.HasIndex("PhoneNumber");
+
+                    b.ToTable("WhatsAppChatMessages", "erpsystem");
+                });
+
             modelBuilder.Entity("WhatsAppBulkMessaging.Domain.Entities.WhatsAppMessage", b =>
                 {
                     b.Property<long>("Id")
@@ -60,12 +134,6 @@ namespace WhatsAppBulkMessaging.Infrastructure.Migrations
                     b.Property<DateTime?>("ReadAt")
                         .HasColumnType("datetime2");
 
-                    b.Property<string>("ReplyMessage")
-                        .HasColumnType("nvarchar(max)");
-
-                    b.Property<DateTime?>("ReplyReceivedAt")
-                        .HasColumnType("datetime2");
-
                     b.Property<int>("RetryCount")
                         .HasColumnType("int");
 
@@ -90,37 +158,6 @@ namespace WhatsAppBulkMessaging.Infrastructure.Migrations
                     b.HasIndex("WhatsAppTemplateId");
 
                     b.ToTable("WhatsAppMessages", "erpsystem");
-                });
-
-            modelBuilder.Entity("WhatsAppBulkMessaging.Domain.Entities.WhatsAppReply", b =>
-                {
-                    b.Property<long>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("bigint");
-
-                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<long>("Id"));
-
-                    b.Property<string>("MetaMessageId")
-                        .IsRequired()
-                        .HasColumnType("nvarchar(max)");
-
-                    b.Property<string>("PhoneNumber")
-                        .IsRequired()
-                        .HasColumnType("nvarchar(max)");
-
-                    b.Property<string>("ReplyMessage")
-                        .IsRequired()
-                        .HasColumnType("nvarchar(max)");
-
-                    b.Property<DateTime>("ReplyReceivedAt")
-                        .HasColumnType("datetime2");
-
-                    b.Property<long?>("WhatsAppMessageId")
-                        .HasColumnType("bigint");
-
-                    b.HasKey("Id");
-
-                    b.ToTable("WhatsAppReplies", "erpsystem");
                 });
 
             modelBuilder.Entity("WhatsAppBulkMessaging.Domain.Entities.WhatsAppTemplate", b =>

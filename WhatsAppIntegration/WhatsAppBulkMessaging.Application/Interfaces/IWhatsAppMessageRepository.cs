@@ -16,13 +16,9 @@ public interface IWhatsAppMessageRepository
         string? errorMessage = null);
     Task<WhatsAppMessage?> GetLatestByPhoneNumberAsync(string phoneNumber);
 
-    Task UpdateReplyAsync(long messageId,string replyMessage,DateTime replyReceivedAt);
-
-    // Get all messages with status and reply information
     Task<List<WhatsAppMessage>> GetAllAsync();
 
-    // Get messages for a specific customer
     Task<List<WhatsAppMessage>> GetByPhoneNumberAsync(string phoneNumber);
 
-    Task AddIncomingReplyAsync(WhatsAppReplyDto reply);
+    
 }

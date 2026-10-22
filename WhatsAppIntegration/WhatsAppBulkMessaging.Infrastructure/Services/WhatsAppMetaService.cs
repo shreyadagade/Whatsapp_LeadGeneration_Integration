@@ -106,8 +106,7 @@ public class WhatsAppMetaService : IWhatsAppMetaService, IWhatsAppService
             "Meta media upload succeeded but media ID was not returned.");
     }
 
-    public async Task<string> SendTemplateMessageAsync(
-        MetaSendMessageRequestDto request)
+    public async Task<string> SendTemplateMessageAsync(MetaSendMessageRequestDto request)
     {
         var url =
             $"{_options.BaseUrl.TrimEnd('/')}/{_options.ApiVersion}/" +
@@ -145,8 +144,7 @@ public class WhatsAppMetaService : IWhatsAppMetaService, IWhatsAppService
             "Meta accepted the request but returned no message ID.");
     }
 
-    public async Task<SendReplyResponseDto> SendReplyAsync(
-        SendReplyRequestDto request)
+    public async Task<SendReplyResponseDto> SendReplyAsync(SendReplyRequestDto request)
     {
         ArgumentNullException.ThrowIfNull(request);
 

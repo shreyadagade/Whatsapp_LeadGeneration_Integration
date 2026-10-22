@@ -1,21 +1,23 @@
 ﻿
 using WhatsAppBulkMessaging.Application.DTOs;
 using WhatsAppBulkMessaging.Application.Interfaces;
+using WhatsAppBulkMessaging.Infrastructure.Repositories;
 
 namespace WhatsAppBulkMessaging.Infrastructure.Services;
 
 public class WhatsAppMessageHistoryService: IWhatsAppMessageHistoryService
 {
     private readonly IWhatsAppMessageRepository _messageRepository;
+    private readonly WhatsAppChatMessageRepository _chatRepository;
 
-    public WhatsAppMessageHistoryService(
-        IWhatsAppMessageRepository messageRepository)
+    public WhatsAppMessageHistoryService(IWhatsAppMessageRepository messageRepository,
+            WhatsAppChatMessageRepository chatRepository)
     {
         _messageRepository = messageRepository;
+        _chatRepository = chatRepository;
     }
 
-    public async Task<List<WhatsAppMessageResponseDto>>
-        GetAllMessagesAsync()
+    public async Task<List<WhatsAppMessageResponseDto>>GetAllMessagesAsync()
     {
         var messages = await _messageRepository.GetAllAsync();
 
@@ -34,17 +36,13 @@ public class WhatsAppMessageHistoryService: IWhatsAppMessageHistoryService
             DeliveredAt = message.DeliveredAt,
             ReadAt = message.ReadAt,
             FailedAt = message.FailedAt,
-            UpdatedAt = message.UpdatedAt,
-            ReplyMessage = message.ReplyMessage,
-            ReplyReceivedAt = message.ReplyReceivedAt
+            UpdatedAt = message.UpdatedAt
         }).ToList();
     }
 
-    public async Task<List<WhatsAppMessageResponseDto>>
-        GetMessagesByPhoneNumberAsync(string phoneNumber)
+    public async Task<List<WhatsAppMessageResponseDto>>GetMessagesByPhoneNumberAsync(string phoneNumber)
     {
-        var messages =
-            await _messageRepository.GetByPhoneNumberAsync(phoneNumber);
+        var messages = await _messageRepository.GetByPhoneNumberAsync(phoneNumber);
 
         return messages.Select(message => new WhatsAppMessageResponseDto
         {
@@ -61,9 +59,32 @@ public class WhatsAppMessageHistoryService: IWhatsAppMessageHistoryService
             DeliveredAt = message.DeliveredAt,
             ReadAt = message.ReadAt,
             FailedAt = message.FailedAt,
-            UpdatedAt = message.UpdatedAt,
-            ReplyMessage = message.ReplyMessage,
-            ReplyReceivedAt = message.ReplyReceivedAt
+            UpdatedAt = message.UpdatedAt
         }).ToList();
     }
+
+    public async Task<List<WhatsAppChatMessageResponseDto>>GetChatHistoryByPhoneNumberAsync(string phoneNumber)
+    {
+        var messages = await _chatRepository.GetByPhoneNumberAsync(phoneNumber);
+
+        return messages.Select(message => new WhatsAppChatMessageResponseDto
+        {
+            Id = message.Id,
+            PhoneNumber = message.PhoneNumber,
+            Direction = message.Direction,
+            MessageType = message.MessageType,
+            MessageText = message.MessageText,
+            MediaId = message.MediaId,
+            MimeType = message.MimeType,
+            FileName = message.FileName,
+            MetaMessageId = message.MetaMessageId,
+            Status = message.Status,
+            ErrorMessage = message.ErrorMessage,
+            CreatedAt = message.CreatedAt,
+            SentAt = message.SentAt,
+            DeliveredAt = message.DeliveredAt,
+            ReadAt = message.ReadAt
+        }).ToList();
+
+        }
 }

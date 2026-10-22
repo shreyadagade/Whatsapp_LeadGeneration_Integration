@@ -13,7 +13,7 @@ public class AppDbContext : DbContext
 
     public DbSet<WhatsAppTemplate> WhatsAppTemplates { get; set; }
     public DbSet<WhatsAppMessage> WhatsAppMessages { get; set; }
-    public DbSet<WhatsAppReply> WhatsAppReplies=> Set<WhatsAppReply>();
+    public DbSet<WhatsAppChatMessage> WhatsAppChatMessages=> Set<WhatsAppChatMessage>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -71,6 +71,55 @@ public class AppDbContext : DbContext
             .WithMany()
             .HasForeignKey(x => x.WhatsAppTemplateId)
             .OnDelete(DeleteBehavior.Restrict);
+        });
+
+        modelBuilder.Entity<WhatsAppChatMessage>(entity =>
+        {
+            entity.ToTable("WhatsAppChatMessages");
+
+            entity.HasKey(x => x.Id);
+
+            entity.Property(x => x.PhoneNumber)
+                .IsRequired()
+                .HasMaxLength(30);
+
+            entity.Property(x => x.Direction)
+                .IsRequired()
+                .HasMaxLength(20);
+
+            entity.Property(x => x.MessageType)
+                .IsRequired()
+                .HasMaxLength(30);
+
+            entity.Property(x => x.MessageText);
+
+            entity.Property(x => x.MediaId)
+                .HasMaxLength(200);
+
+            entity.Property(x => x.MimeType)
+                .HasMaxLength(150);
+
+            entity.Property(x => x.FileName)
+                .HasMaxLength(255);
+
+            entity.Property(x => x.MetaMessageId)
+                .HasMaxLength(200);
+
+            entity.Property(x => x.Status)
+                .IsRequired()
+                .HasMaxLength(30);
+
+            entity.Property(x => x.ErrorMessage)
+                .HasMaxLength(1000);
+
+            entity.Property(x => x.CreatedAt)
+                .IsRequired();
+
+            entity.HasIndex(x => x.PhoneNumber);
+
+            entity.HasIndex(x => x.MetaMessageId)
+                .IsUnique()
+                .HasFilter("[MetaMessageId] IS NOT NULL");
         });
     }
 }
