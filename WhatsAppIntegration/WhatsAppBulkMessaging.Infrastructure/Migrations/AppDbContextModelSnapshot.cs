@@ -50,6 +50,9 @@ namespace WhatsAppBulkMessaging.Infrastructure.Migrations
                         .HasMaxLength(255)
                         .HasColumnType("nvarchar(255)");
 
+                    b.Property<bool>("IsRead")
+                        .HasColumnType("bit");
+
                     b.Property<string>("MediaId")
                         .HasMaxLength(200)
                         .HasColumnType("nvarchar(200)");

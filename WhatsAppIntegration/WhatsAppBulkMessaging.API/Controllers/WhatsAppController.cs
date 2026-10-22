@@ -1,5 +1,7 @@
 ﻿
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.SignalR;
+using WhatsAppBulkMessaging.API.Hubs;
 using WhatsAppBulkMessaging.API.Models;
 using WhatsAppBulkMessaging.Application.DTOs;
 using WhatsAppBulkMessaging.Application.Interfaces;
@@ -20,6 +22,8 @@ public class WhatsAppController : ControllerBase
     private readonly IWhatsAppMetaService _metaService;
     private readonly IWhatsAppMessageHistoryService _messageHistoryService;
     private readonly WhatsAppChatMessageRepository _chatRepository;
+    private readonly IHubContext<WhatsAppChatHub> _hubContext;
+
     public WhatsAppController(
         IWhatsAppService messageService,
         IWhatsAppMessageRepository messageRepository,
@@ -28,7 +32,8 @@ public class WhatsAppController : ControllerBase
         IRecipientValidationService recipientValidationService,
         IWhatsAppMetaService metaService,
         IWhatsAppMessageHistoryService messageHistoryService,
-        WhatsAppChatMessageRepository chatRepository)
+        WhatsAppChatMessageRepository chatRepository,
+        IHubContext<WhatsAppChatHub> hubContext)
     {
         _messageService = messageService;
         _messageRepository = messageRepository;
@@ -38,6 +43,7 @@ public class WhatsAppController : ControllerBase
         _metaService = metaService;
         _messageHistoryService = messageHistoryService;
         _chatRepository = chatRepository;
+        _hubContext = hubContext;
     }
 
  
@@ -202,7 +208,17 @@ public class WhatsAppController : ControllerBase
                         };
 
                         await _chatRepository.AddAsync(chatMessage);
-    
+
+                        await _hubContext.Clients.All.SendAsync("ReceiveMessage",
+                        new
+                        {
+                            phoneNumber = chatMessage.PhoneNumber,
+                            direction = chatMessage.Direction,
+                            messageType = chatMessage.MessageType,
+                            messageText = chatMessage.MessageText,
+                            createdAt = chatMessage.CreatedAt
+                        });
+
                         sentMessages.Add(new
                         {
                             rowNumber = recipient.RowNumber,
@@ -456,5 +472,23 @@ public class WhatsAppController : ControllerBase
     }
 
 
-    
+    [HttpGet("chats")]
+    public async Task<IActionResult> GetChatList()
+    {
+        var chats = await _messageHistoryService.GetChatListAsync();
+        return Ok(chats);
+    }
+
+    [HttpPut("chats/{phoneNumber}/read")]
+    public async Task<IActionResult> MarkChatAsRead(string phoneNumber)
+    {
+        if (string.IsNullOrWhiteSpace(phoneNumber))
+            return BadRequest(new { message = "Phone number is required." });
+
+        await _messageHistoryService.MarkChatAsReadAsync(phoneNumber);
+
+        return Ok(new { message = "Chat marked as read." });
+    }
+
+
 }

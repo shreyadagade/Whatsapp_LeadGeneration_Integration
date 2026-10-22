@@ -86,5 +86,36 @@ public class WhatsAppMessageHistoryService: IWhatsAppMessageHistoryService
             ReadAt = message.ReadAt
         }).ToList();
 
-        }
+    }
+    public async Task<List<WhatsAppChatListResponseDto>> GetChatListAsync()
+    {
+        var messages = await _chatRepository.GetAllChatMessagesAsync();
+
+        return messages
+            .GroupBy(x => x.PhoneNumber)
+            .Select(group =>
+            {
+                var latestMessage = group
+                    .OrderByDescending(x => x.CreatedAt)
+                    .First();
+
+                return new WhatsAppChatListResponseDto
+                {
+                    PhoneNumber = group.Key,
+                    LastMessage = latestMessage.MessageText,
+                    LastMessageAt = latestMessage.CreatedAt,
+                    UnreadCount = group.Count(x =>
+                        x.Direction == "Incoming" && !x.IsRead)
+                };
+            })
+            .OrderByDescending(x => x.LastMessageAt)
+            .ToList();
+    }
+    public async Task MarkChatAsReadAsync(string phoneNumber)
+    {
+        if (string.IsNullOrWhiteSpace(phoneNumber))
+            throw new ArgumentException("Phone number is required.", nameof(phoneNumber));
+
+        await _chatRepository.MarkAsReadAsync(phoneNumber);
+    }
 }

@@ -1,7 +1,9 @@
 ﻿
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.SignalR;
 using Microsoft.Extensions.Options;
 using System.Globalization;
+using WhatsAppBulkMessaging.API.Hubs;
 using WhatsAppBulkMessaging.Application.DTOs;
 using WhatsAppBulkMessaging.Application.Interfaces;
 using WhatsAppBulkMessaging.Domain.Entities;
@@ -17,17 +19,20 @@ public class WhatsAppWebhookController : ControllerBase
     private readonly IWhatsAppMessageRepository _messageRepository;
     private readonly IWhatsAppTemplateService _templateService;
     private readonly WhatsAppChatMessageRepository _chatRepository;
+    private readonly IHubContext<WhatsAppChatHub> _hubContext;
 
     public WhatsAppWebhookController(
         IOptions<WhatsAppOptions> options,
         IWhatsAppMessageRepository messageRepository,
         IWhatsAppTemplateService templateService,
-        WhatsAppChatMessageRepository chatRepository)
+        WhatsAppChatMessageRepository chatRepository,
+        IHubContext<WhatsAppChatHub> hubContext)
     {
         _options = options.Value;
         _messageRepository = messageRepository;
         _templateService = templateService;
         _chatRepository = chatRepository;
+        _hubContext = hubContext;
     }
 
  
@@ -51,7 +56,6 @@ public class WhatsAppWebhookController : ControllerBase
     [HttpPost]
     public async Task<IActionResult> Receive(WhatsAppWebhookDto payload)
     {
-     
         if (payload.Entry is null || payload.Entry.Count == 0)
             return Ok();
 
@@ -142,10 +146,21 @@ public class WhatsAppWebhookController : ControllerBase
                             MessageText = replyText,
                             MetaMessageId = incoming.Id,
                             Status = "Received",
+                            IsRead = false,
                             CreatedAt = replyReceivedAt
                         };
 
                         await _chatRepository.AddAsync(chatMessage);
+
+                        await _hubContext.Clients.All.SendAsync("ReceiveMessage",
+                        new
+                        {
+                            phoneNumber = chatMessage.PhoneNumber,
+                            direction = chatMessage.Direction,
+                            messageType = chatMessage.MessageType,
+                            messageText = chatMessage.MessageText,
+                            createdAt = chatMessage.CreatedAt
+                        });
                     }
                 }
             }

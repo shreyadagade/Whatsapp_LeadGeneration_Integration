@@ -1,6 +1,7 @@
 
 using Microsoft.AspNetCore.Http.Features;
 using WhatsAppBulkMessaging.API.Configuration;
+using WhatsAppBulkMessaging.API.Hubs;
 using WhatsAppBulkMessaging.API.Middleware;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -19,6 +20,7 @@ builder.WebHost.ConfigureKestrel(options =>
 
 // Services
 builder.Services.AddControllers();
+builder.Services.AddSignalR();
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 
@@ -65,5 +67,7 @@ app.UseHttpsRedirection();
 app.UseAuthorization();
 
 app.MapControllers();
+
+app.MapHub<WhatsAppChatHub>("/hubs/whatsapp-chat");
 
 app.Run();

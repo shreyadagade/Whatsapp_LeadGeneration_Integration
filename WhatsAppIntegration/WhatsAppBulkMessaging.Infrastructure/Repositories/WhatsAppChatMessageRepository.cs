@@ -40,4 +40,32 @@ public class WhatsAppChatMessageRepository
             .OrderBy(x => x.CreatedAt)
             .ToListAsync();
     }
+
+    public async Task<List<WhatsAppChatMessage>> GetAllChatMessagesAsync()
+    {
+        await using var context = await _contextFactory.CreateDbContextAsync();
+
+        return await context.WhatsAppChatMessages
+            .AsNoTracking()
+            .OrderByDescending(x => x.CreatedAt)
+            .ToListAsync();
+    }
+
+    public async Task MarkAsReadAsync(string phoneNumber)
+    {
+        await using var context = await _contextFactory.CreateDbContextAsync();
+
+        var unreadMessages = await context.WhatsAppChatMessages
+            .Where(x => x.PhoneNumber == phoneNumber
+                        && x.Direction == "Incoming"
+                        && !x.IsRead)
+            .ToListAsync();
+
+        foreach (var message in unreadMessages)
+        {
+            message.IsRead = true;
+        }
+
+        await context.SaveChangesAsync();
+    }
 }

@@ -12,6 +12,7 @@ public class WhatsAppChatMessage
     public string? FileName { get; set; }
     public string? MetaMessageId { get; set; }
     public string Status { get; set; } = "Pending";
+    public bool IsRead { get; set; } = false;
     public string? ErrorMessage { get; set; }
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
     public DateTime? SentAt { get; set; }
