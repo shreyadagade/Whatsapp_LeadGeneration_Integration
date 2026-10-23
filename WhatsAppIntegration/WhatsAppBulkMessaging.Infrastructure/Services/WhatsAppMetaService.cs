@@ -60,10 +60,7 @@ public class WhatsAppMetaService : IWhatsAppMetaService, IWhatsAppService
 
         return result ?? new MetaTemplateResponseDto();
     }
-    public async Task<string> UploadMediaAsync(
-        Stream fileStream,
-        string fileName,
-        string contentType)
+    public async Task<string> UploadMediaAsync(Stream fileStream,string fileName,string contentType)
     {
         var url =
             $"{_options.BaseUrl.TrimEnd('/')}/{_options.ApiVersion}/" +
@@ -207,12 +204,14 @@ public class WhatsAppMetaService : IWhatsAppMetaService, IWhatsAppService
             request.FileName,
             request.ContentType);
 
+        result.MediaId = mediaId;
+        result.MimeType = request.ContentType;
+        result.FileName = request.FileName;
+
         // Send optional text as a separate WhatsApp message.
         if (!string.IsNullOrWhiteSpace(request.Text))
         {
-            result.TextMessageId = await SendTextMessageAsync(
-                phoneNumber,
-                request.Text);
+            result.TextMessageId = await SendTextMessageAsync(phoneNumber,request.Text);
         }
 
         var mediaPayload = BuildMediaPayload(
@@ -227,9 +226,7 @@ public class WhatsAppMetaService : IWhatsAppMetaService, IWhatsAppService
         return result;
     }
 
-    private static void ValidateMediaContentType(
-        string messageType,
-        string contentType)
+    private static void ValidateMediaContentType(string messageType,string contentType)
     {
         var type = contentType.Trim().ToLowerInvariant();
 
@@ -253,10 +250,16 @@ public class WhatsAppMetaService : IWhatsAppMetaService, IWhatsAppService
             {
                 "application/pdf",
                 "text/plain",
+                "text/csv",
+                "application/zip",
+                "application/x-zip-compressed",
+
                 "application/msword",
                 "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+
                 "application/vnd.ms-excel",
                 "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+
                 "application/vnd.ms-powerpoint",
                 "application/vnd.openxmlformats-officedocument.presentationml.presentation"
             },
@@ -272,12 +275,7 @@ public class WhatsAppMetaService : IWhatsAppMetaService, IWhatsAppService
         }
     }
 
-    private static Dictionary<string, object> BuildMediaPayload(
-        string phoneNumber,
-        string messageType,
-        string mediaId,
-        string fileName,
-        string? caption)
+    private static Dictionary<string, object> BuildMediaPayload(string phoneNumber,string messageType,string mediaId,string fileName,string? caption)
     {
         var media = new Dictionary<string, object>
         {
@@ -301,11 +299,9 @@ public class WhatsAppMetaService : IWhatsAppMetaService, IWhatsAppService
             ["type"] = messageType,
             [messageType] = media
         };
-    }
+    }  
 
-    private async Task<string> SendTextMessageAsync(
-        string phoneNumber,
-        string text)
+    private async Task<string> SendTextMessageAsync(string phoneNumber,string text)
     {
         var payload = new
         {
@@ -361,4 +357,55 @@ public class WhatsAppMetaService : IWhatsAppMetaService, IWhatsAppService
         throw new InvalidOperationException(
             "Meta accepted the request but returned no message ID.");
     }
+
+    public async Task<WhatsAppMediaContentDto> DownloadMediaAsync(string mediaId)
+    {
+        if (string.IsNullOrWhiteSpace(mediaId))
+            throw new ArgumentException("Media ID is required.", nameof(mediaId));
+
+        // Step 1: Get media download URL from Meta
+        var mediaInfoUrl =
+            $"{_options.BaseUrl.TrimEnd('/')}/{_options.ApiVersion}/{mediaId}";
+
+        using var infoRequest = new HttpRequestMessage(HttpMethod.Get, mediaInfoUrl);
+        infoRequest.Headers.Authorization =
+            new AuthenticationHeaderValue("Bearer", _options.AccessToken);
+
+        using var infoResponse = await _httpClient.SendAsync(infoRequest);
+        var infoJson = await infoResponse.Content.ReadAsStringAsync();
+
+        if (!infoResponse.IsSuccessStatusCode)
+            throw new HttpRequestException(
+                $"Meta media info error ({(int)infoResponse.StatusCode}): {infoJson}");
+
+        using var document = JsonDocument.Parse(infoJson);
+        var root = document.RootElement;
+
+        var downloadUrl = root.GetProperty("url").GetString()
+            ?? throw new InvalidOperationException("Meta did not return a media URL.");
+
+        var contentType = root.TryGetProperty("mime_type", out var mimeTypeElement)
+            ? mimeTypeElement.GetString() ?? "application/octet-stream"
+            : "application/octet-stream";
+
+        // Step 2: Download actual media using Meta access token
+        using var downloadRequest = new HttpRequestMessage(HttpMethod.Get, downloadUrl);
+        downloadRequest.Headers.Authorization =
+            new AuthenticationHeaderValue("Bearer", _options.AccessToken);
+
+        using var downloadResponse = await _httpClient.SendAsync(downloadRequest);
+        if (!downloadResponse.IsSuccessStatusCode)
+            throw new HttpRequestException(
+                $"Meta media download failed: {(int)downloadResponse.StatusCode}");
+
+        var content = await downloadResponse.Content.ReadAsByteArrayAsync();
+
+        return new WhatsAppMediaContentDto
+        {
+            Content = content,
+            ContentType = contentType,
+            FileName = null
+        };
+    }
+
 }

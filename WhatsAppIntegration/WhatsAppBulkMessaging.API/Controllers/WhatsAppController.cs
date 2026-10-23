@@ -80,8 +80,7 @@ public class WhatsAppController : ControllerBase
 
         using var stream = request.File.OpenReadStream();
 
-        var template = await _templateRepository.GetByIdAsync(
-            request.WhatsAppTemplateId);
+        var template = await _templateRepository.GetByIdAsync(request.WhatsAppTemplateId);
 
         if (template is null)
         {
@@ -411,25 +410,47 @@ public class WhatsAppController : ControllerBase
         {
             var result = await _metaService.SendReplyAsync(replyRequest);
 
+
             var sentAt = DateTime.UtcNow;
 
-            var metaMessageId = result.TextMessageId ?? result.MediaMessageId;
-
-            var chatMessage = new WhatsAppChatMessage
+            // Save text message separately
+            if (!string.IsNullOrWhiteSpace(result.TextMessageId))
             {
-                PhoneNumber = request.PhoneNumber,
-                Direction = "Outgoing",
-                MessageType = messageType,
-                MessageText = messageType == "text"
-                    ? request.Text
-                    : request.Caption,
-                MetaMessageId = metaMessageId,
-                Status = "Sent",
-                CreatedAt = sentAt,
-                SentAt = sentAt
-            };
+                var textMessage = new WhatsAppChatMessage
+                {
+                    PhoneNumber = request.PhoneNumber,
+                    Direction = "Outgoing",
+                    MessageType = "text",
+                    MessageText = request.Text,
+                    MetaMessageId = result.TextMessageId,
+                    Status = "Sent",
+                    CreatedAt = sentAt,
+                    SentAt = sentAt
+                };
 
-            await _chatRepository.AddAsync(chatMessage);
+                await _chatRepository.AddAsync(textMessage);
+            }
+
+            // Save media message separately
+            if (!string.IsNullOrWhiteSpace(result.MediaMessageId))
+            {
+                var mediaMessage = new WhatsAppChatMessage
+                {
+                    PhoneNumber = request.PhoneNumber,
+                    Direction = "Outgoing",
+                    MessageType = messageType,
+                    MessageText = request.Caption,
+                    MediaId = result.MediaId,
+                    MimeType = result.MimeType,
+                    FileName = result.FileName,
+                    MetaMessageId = result.MediaMessageId,
+                    Status = "Sent",
+                    CreatedAt = sentAt,
+                    SentAt = sentAt
+                };
+
+                await _chatRepository.AddAsync(mediaMessage);
+            }
 
             return Ok(new
             {
@@ -488,6 +509,26 @@ public class WhatsAppController : ControllerBase
         await _messageHistoryService.MarkChatAsReadAsync(phoneNumber);
 
         return Ok(new { message = "Chat marked as read." });
+    }
+
+    [HttpGet("media/{mediaId}")]
+    public async Task<IActionResult> GetMedia(string mediaId)
+    {
+        var media = await _metaService.DownloadMediaAsync(mediaId);
+
+        var chatMessage = await _chatRepository.GetByMediaIdAsync(mediaId);
+
+        var fileName = chatMessage?.FileName;
+
+        if (string.IsNullOrWhiteSpace(fileName))
+        {
+            fileName = mediaId;
+        }
+
+        return File(
+            media.Content,
+            media.ContentType,
+            fileName);
     }
 
 

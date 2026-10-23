@@ -109,8 +109,38 @@ public class WhatsAppWebhookMessageDto
     [JsonPropertyName("text")]
     public WhatsAppWebhookTextDto? Text { get; set; }
 
+    [JsonPropertyName("image")]
+    public WhatsAppWebhookMediaDto? Image { get; set; }
+
+    [JsonPropertyName("video")]
+    public WhatsAppWebhookMediaDto? Video { get; set; }
+
+    [JsonPropertyName("audio")]
+    public WhatsAppWebhookMediaDto? Audio { get; set; }
+
+    [JsonPropertyName("document")]
+    public WhatsAppWebhookMediaDto? Document { get; set; }
+
     [JsonPropertyName("context")]
     public WhatsAppWebhookContextDto? Context { get; set; }
+}
+
+public class WhatsAppWebhookMediaDto
+{
+    [JsonPropertyName("id")]
+    public string? Id { get; set; }
+
+    [JsonPropertyName("mime_type")]
+    public string? MimeType { get; set; }
+
+    [JsonPropertyName("filename")]
+    public string? FileName { get; set; }
+
+    [JsonPropertyName("caption")]
+    public string? Caption { get; set; }
+
+    [JsonPropertyName("sha256")]
+    public string? Sha256 { get; set; }
 }
 
 public class WhatsAppWebhookContextDto
